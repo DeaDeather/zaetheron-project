@@ -359,6 +359,32 @@ document.querySelectorAll('.plan .buy-btn').forEach(btn => {
 // Тот же домен, что и API (key_server.py отдаёт и этот файл, и /check)
 const API_BASE = window.location.origin;
 
+// Стабильный ID устройства: генерируется один раз и хранится в localStorage.
+// Именно он используется сервером как "hwid" для привязки ключа к устройству.
+function getDeviceId() {
+  let id = localStorage.getItem('zaetheron_device_id');
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem('zaetheron_device_id', id);
+  }
+  return id;
+}
+const deviceId = getDeviceId();
+
+// Автоповтор при сетевых сбоях (например, редкий/плавающий обрыв соединения).
+// Повторяет ТОЛЬКО если fetch реально упал (нет ответа вообще) — HTTP-ошибки
+// вроде 404/403 не ретраятся, т.к. это нормальный ответ сервера, а не сбой связи.
+async function fetchWithRetry(url, options, retries = 2, delayMs = 900) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (e) {
+      if (attempt === retries) throw e;
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+}
+
 const keyInput = document.getElementById('keyInput');
 const checkBtn = document.getElementById('checkBtn');
 const statusEl = document.getElementById('status');
@@ -367,6 +393,13 @@ const downloadLink = document.getElementById('downloadLink');
 keyInput.addEventListener('input', () => {
   keyInput.value = keyInput.value.toUpperCase();
 });
+
+function activateErrorText(status, detail) {
+  // /activate уже возвращает человекочитаемый текст на русском в detail
+  if (detail) return detail;
+  if (status === 409) return 'Ключ уже активирован на другом устройстве.';
+  return 'Не удалось привязать ключ к устройству.';
+}
 
 checkBtn.addEventListener('click', async () => {
   const key = keyInput.value.trim();
@@ -380,7 +413,21 @@ checkBtn.addEventListener('click', async () => {
   checkBtn.disabled = true;
   checkBtn.textContent = 'Проверяем…';
   try {
-    const res = await fetch(`${API_BASE}/check`, {
+    // 1) привязка/проверка устройства — именно тут ключ "садится" на конкретный hwid
+    const actRes = await fetchWithRetry(`${API_BASE}/activate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, hwid: deviceId })
+    });
+    const actData = await actRes.json().catch(() => ({}));
+    if (!actRes.ok) {
+      statusEl.textContent = activateErrorText(actRes.status, actData.detail);
+      statusEl.classList.add('err');
+      return;
+    }
+
+    // 2) после успешной привязки — подтягиваем полные данные (срок, ссылка на скачивание)
+    const res = await fetchWithRetry(`${API_BASE}/check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key })
@@ -408,6 +455,7 @@ checkBtn.addEventListener('click', async () => {
     checkBtn.textContent = 'Проверить и скачать';
   }
 });
+
 
 function reasonToText(reason) {
   switch (reason) {
@@ -468,7 +516,7 @@ async function refreshProfile() {
   profileDownloadLink.style.display = 'none';
 
   try {
-    const res = await fetch(`${API_BASE}/check`, {
+    const res = await fetchWithRetry(`${API_BASE}/check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: savedKey })
