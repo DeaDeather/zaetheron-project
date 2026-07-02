@@ -359,18 +359,6 @@ document.querySelectorAll('.plan .buy-btn').forEach(btn => {
 // Тот же домен, что и API (key_server.py отдаёт и этот файл, и /check)
 const API_BASE = window.location.origin;
 
-// Стабильный ID устройства: генерируется один раз и хранится в localStorage.
-// Именно он используется сервером как "hwid" для привязки ключа к устройству.
-function getDeviceId() {
-  let id = localStorage.getItem('zaetheron_device_id');
-  if (!id) {
-    id = (crypto.randomUUID ? crypto.randomUUID() : `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    localStorage.setItem('zaetheron_device_id', id);
-  }
-  return id;
-}
-const deviceId = getDeviceId();
-
 // Автоповтор при сетевых сбоях (например, редкий/плавающий обрыв соединения).
 // Повторяет ТОЛЬКО если fetch реально упал (нет ответа вообще) — HTTP-ошибки
 // вроде 404/403 не ретраятся, т.к. это нормальный ответ сервера, а не сбой связи.
@@ -394,13 +382,6 @@ keyInput.addEventListener('input', () => {
   keyInput.value = keyInput.value.toUpperCase();
 });
 
-function activateErrorText(status, detail) {
-  // /activate уже возвращает человекочитаемый текст на русском в detail
-  if (detail) return detail;
-  if (status === 409) return 'Ключ уже активирован на другом устройстве.';
-  return 'Не удалось привязать ключ к устройству.';
-}
-
 checkBtn.addEventListener('click', async () => {
   const key = keyInput.value.trim();
   statusEl.className = 'status';
@@ -413,20 +394,9 @@ checkBtn.addEventListener('click', async () => {
   checkBtn.disabled = true;
   checkBtn.textContent = 'Проверяем…';
   try {
-    // 1) привязка/проверка устройства — именно тут ключ "садится" на конкретный hwid
-    const actRes = await fetchWithRetry(`${API_BASE}/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, hwid: deviceId })
-    });
-    const actData = await actRes.json().catch(() => ({}));
-    if (!actRes.ok) {
-      statusEl.textContent = activateErrorText(actRes.status, actData.detail);
-      statusEl.classList.add('err');
-      return;
-    }
-
-    // 2) после успешной привязки — подтягиваем полные данные (срок, ссылка на скачивание)
+    // Мини-апп только СМОТРИТ статус ключа — не привязывает устройство.
+    // Реальную привязку к железу делает скачанный клиент, когда его запускают
+    // на компьютере покупателя (он сам стучится в /activate с настоящим hwid).
     const res = await fetchWithRetry(`${API_BASE}/check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -462,6 +432,7 @@ function reasonToText(reason) {
     case 'not_found': return 'Такой ключ не найден.';
     case 'revoked': return 'Ключ отозван.';
     case 'expired': return 'Срок действия ключа истёк.';
+    case 'db_temporarily_unavailable': return 'Сервер временно недоступен, попробуйте ещё раз через пару секунд.';
     default: return 'Ключ недействителен.';
   }
 }
