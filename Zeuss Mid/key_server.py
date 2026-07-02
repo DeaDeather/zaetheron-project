@@ -47,7 +47,7 @@ def webapp():
 
 
 def db():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
     conn.autocommit = False
     return conn
 

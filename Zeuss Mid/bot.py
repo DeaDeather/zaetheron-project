@@ -60,7 +60,7 @@ dp = Dispatcher()
 
 
 def db():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(DATABASE_URL, connect_timeout=5)
 
 
 def is_admin(message: Message) -> bool:
