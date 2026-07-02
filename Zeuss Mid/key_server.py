@@ -146,6 +146,33 @@ class BuyReq(BaseModel):
     init_data: str
 
 
+# --- антиспам для /buy: простой rate-limit в памяти процесса ---
+# ограничение: не чаще 1 заявки в BUY_COOLDOWN_SECONDS секунд
+# и не больше BUY_MAX_PER_HOUR заявок в течение часа с одного telegram_id
+BUY_COOLDOWN_SECONDS = int(os.environ.get("BUY_COOLDOWN_SECONDS", 30))
+BUY_MAX_PER_HOUR = int(os.environ.get("BUY_MAX_PER_HOUR", 5))
+_buy_last_ts: dict[int, float] = {}      # user_id -> время последней заявки
+_buy_history: dict[int, list] = {}       # user_id -> список timestamp'ов за последний час
+
+
+def check_buy_rate_limit(user_id: int):
+    now = time.time()
+
+    last_ts = _buy_last_ts.get(user_id)
+    if last_ts is not None and now - last_ts < BUY_COOLDOWN_SECONDS:
+        wait = int(BUY_COOLDOWN_SECONDS - (now - last_ts))
+        raise HTTPException(429, f"Слишком часто. Подождите {wait} сек. и попробуйте снова.")
+
+    history = _buy_history.get(user_id, [])
+    history = [ts for ts in history if now - ts < 3600]  # чистим записи старше часа
+    if len(history) >= BUY_MAX_PER_HOUR:
+        raise HTTPException(429, "Слишком много заявок за последний час. Попробуйте позже.")
+
+    history.append(now)
+    _buy_history[user_id] = history
+    _buy_last_ts[user_id] = now
+
+
 def _norm(key: str) -> str:
     return key.strip().upper()
 
@@ -229,6 +256,8 @@ def buy(req: BuyReq):
         raise HTTPException(401, "invalid_init_data")
 
     user_id = user.get("id")
+    check_buy_rate_limit(user_id)
+
     username = user.get("username")
     full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
 
