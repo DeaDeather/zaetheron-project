@@ -339,10 +339,6 @@ document.querySelectorAll('.plan .buy-btn').forEach(btn => {
         } else {
           alert('Заявка отправлена! Проверьте личные сообщения от бота.');
         }
-      } else if (res.status === 429) {
-        const data = await res.json().catch(() => ({}));
-        const msg = data.detail || 'Слишком много заявок. Попробуйте позже.';
-        if (tg.showAlert) tg.showAlert(msg); else alert(msg);
       } else {
         alert('Не удалось отправить заявку, попробуйте ещё раз.');
       }
@@ -358,20 +354,6 @@ document.querySelectorAll('.plan .buy-btn').forEach(btn => {
 /* ---------- проверка ключа и выдача ссылки на скачивание ---------- */
 // Тот же домен, что и API (key_server.py отдаёт и этот файл, и /check)
 const API_BASE = window.location.origin;
-
-// Автоповтор при сетевых сбоях (например, редкий/плавающий обрыв соединения).
-// Повторяет ТОЛЬКО если fetch реально упал (нет ответа вообще) — HTTP-ошибки
-// вроде 404/403 не ретраятся, т.к. это нормальный ответ сервера, а не сбой связи.
-async function fetchWithRetry(url, options, retries = 2, delayMs = 900) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fetch(url, options);
-    } catch (e) {
-      if (attempt === retries) throw e;
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-}
 
 const keyInput = document.getElementById('keyInput');
 const checkBtn = document.getElementById('checkBtn');
@@ -394,10 +376,7 @@ checkBtn.addEventListener('click', async () => {
   checkBtn.disabled = true;
   checkBtn.textContent = 'Проверяем…';
   try {
-    // Мини-апп только СМОТРИТ статус ключа — не привязывает устройство.
-    // Реальную привязку к железу делает скачанный клиент, когда его запускают
-    // на компьютере покупателя (он сам стучится в /activate с настоящим hwid).
-    const res = await fetchWithRetry(`${API_BASE}/check`, {
+    const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key })
@@ -405,8 +384,8 @@ checkBtn.addEventListener('click', async () => {
     const data = await res.json();
     if (res.ok && data.ok) {
       statusEl.textContent = data.expires_at
-        ? `Online — активен до ${new Date(data.expires_at * 1000).toLocaleDateString('ru-RU')}.`
-        : 'Online — активен бессрочно.';
+        ? `Ключ активен до ${new Date(data.expires_at * 1000).toLocaleDateString('ru-RU')}.`
+        : 'Ключ активен бессрочно.';
       statusEl.classList.add('ok');
       localStorage.setItem('zaetheron_key', key);
       if (data.download_url) {
@@ -426,14 +405,12 @@ checkBtn.addEventListener('click', async () => {
   }
 });
 
-
 function reasonToText(reason) {
   switch (reason) {
-    case 'not_found': return 'Отозван / истёк.';
-    case 'revoked': return 'Отозван / истёк.';
-    case 'expired': return 'Отозван / истёк.';
-    case 'db_temporarily_unavailable': return 'Сервер временно недоступен, попробуйте ещё раз через пару секунд.';
-    default: return 'Отозван / истёк.';
+    case 'not_found': return 'Такой ключ не найден.';
+    case 'revoked': return 'Ключ отозван.';
+    case 'expired': return 'Срок действия ключа истёк.';
+    default: return 'Ключ недействителен.';
   }
 }
 
@@ -486,37 +463,15 @@ async function refreshProfile() {
   const profileDownloadLink = document.getElementById('profileDownloadLink');
   profileDownloadLink.style.display = 'none';
 
-  function renderLastKnown() {
-    // Показывает последние известные значения (из localStorage), если есть,
-    // вместо пустого «—» — переживает и обрыв связи, и перезагрузку страницы.
-    let cached = null;
-    try { cached = JSON.parse(localStorage.getItem('zaetheron_last_check') || 'null'); } catch (e) {}
-    if (cached && cached.key === savedKey) {
-      document.getElementById('lExpires').textContent = cached.expires_at
-        ? new Date(cached.expires_at * 1000).toLocaleDateString('ru-RU')
-        : 'бессрочно';
-      document.getElementById('lHwid').textContent = cached.hwid_bound ? 'привязано' : 'не привязано';
-      document.getElementById('lResets').textContent = cached.resets_left ?? '—';
-      if (cached.download_url) {
-        profileDownloadLink.href = cached.download_url;
-        profileDownloadLink.style.display = 'block';
-      }
-    } else {
-      document.getElementById('lExpires').textContent = '—';
-      document.getElementById('lHwid').textContent = '—';
-      document.getElementById('lResets').textContent = '—';
-    }
-  }
-
   try {
-    const res = await fetchWithRetry(`${API_BASE}/check`, {
+    const res = await fetch(`${API_BASE}/check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: savedKey })
     });
     const data = await res.json();
     if (res.ok && data.ok) {
-      document.getElementById('lStatus').innerHTML = '<span class="badge-ok">online</span>';
+      document.getElementById('lStatus').innerHTML = '<span class="badge-ok">активен</span>';
       document.getElementById('lExpires').textContent = data.expires_at
         ? new Date(data.expires_at * 1000).toLocaleDateString('ru-RU')
         : 'бессрочно';
@@ -526,21 +481,14 @@ async function refreshProfile() {
         profileDownloadLink.href = data.download_url;
         profileDownloadLink.style.display = 'block';
       }
-      // запоминаем последнее успешное состояние на случай будущих сбоев связи
-      localStorage.setItem('zaetheron_last_check', JSON.stringify({
-        key: savedKey,
-        expires_at: data.expires_at,
-        hwid_bound: data.hwid_bound,
-        resets_left: data.resets_left,
-        download_url: data.download_url,
-      }));
     } else {
       document.getElementById('lStatus').innerHTML = `<span class="badge-err">${reasonToText(data.detail)}</span>`;
-      renderLastKnown();
+      document.getElementById('lExpires').textContent = '—';
+      document.getElementById('lHwid').textContent = '—';
+      document.getElementById('lResets').textContent = '—';
     }
   } catch (e) {
     document.getElementById('lStatus').innerHTML = '<span class="badge-err">нет связи с сервером</span>';
-    renderLastKnown();
   }
 }
 
