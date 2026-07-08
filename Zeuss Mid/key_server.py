@@ -61,7 +61,7 @@ def build_dns_mobileconfig(servers: list[str]) -> bytes:
                 "PayloadType": "com.apple.dnsSettings.managed",
                 "PayloadUUID": payload_uuid,
                 "PayloadIdentifier": f"com.zaetheron.dns.{payload_uuid}",
-                "PayloadDisplayName": "Zaetheron Private DNS",
+                "PayloadDisplayName": "ZAETHERON",
                 "PayloadVersion": 1,
                 "DNSSettings": {
                     "DNSProtocol": "Cleartext",
@@ -69,7 +69,7 @@ def build_dns_mobileconfig(servers: list[str]) -> bytes:
                 },
             }
         ],
-        "PayloadDisplayName": "ZAETHERON PRIVATE — DNS",
+        "PayloadDisplayName": "ZAETHERON",
         "PayloadDescription": "Системный DNS на приватные резолверы. Не туннелирует трафик, не является VPN.",
         "PayloadIdentifier": f"com.zaetheron.profile.{profile_uuid}",
         "PayloadOrganization": "Zaetheron",
@@ -431,7 +431,7 @@ def optimize_mobileconfig(key: str):
     return Response(
         content=config_bytes,
         media_type="application/x-apple-aspen-config",
-        headers={"Content-Disposition": "attachment; filename=zaetheron-private-dns.mobileconfig"},
+        headers={"Content-Disposition": "attachment; filename=ZAETHERON.mobileconfig"},
     )
 
 
