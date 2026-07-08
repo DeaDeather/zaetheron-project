@@ -214,6 +214,21 @@
   }
   .report-textarea:focus{ border-color:var(--tiffany); }
 
+  .private-mark{
+    text-align:center; margin-top:10px; font-size:10px; letter-spacing:0.25em;
+    color:var(--text-muted); opacity:0.5; font-family:'JetBrains Mono', monospace;
+  }
+  .modal-overlay{
+    position:fixed; inset:0; z-index:50;
+    background:rgba(2,6,18,0.72); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-box{
+    background:var(--bg-deep); border:1px solid var(--card-border); border-radius:18px;
+    padding:22px 20px; max-width:420px; width:100%;
+    box-shadow:0 20px 60px -20px rgba(0,0,0,0.7);
+  }
+
   .flying-title{
     position:fixed; top:14%; left:-45%;
     z-index:0; pointer-events:none;
@@ -328,26 +343,32 @@
       <h3>Ваш регион</h3>
       <div id="countryPill" class="country-pill">определяем…</div>
       <p class="muted-text" style="margin-top:0;">
-        Ниже — публичные DNS-резолверы (не VPN, трафик не туннелируется — меняется только то,
-        какой сервер отвечает на DNS-запросы). Рекомендуем IPv6-адреса, с IPv4 как резерв.
+        Профиль ниже — не VPN: трафик никуда не туннелируется, меняется только то, какой сервер
+        отвечает на DNS-запросы (системно, на Wi-Fi и сотовой сети сразу).
       </p>
+      <button id="optimizeBtn" class="check-btn">Оптимизировать</button>
     </div>
 
     <div class="card opt-section" style="margin-top:14px;">
-      <h3>DNS-серверы</h3>
+      <h3>Приватные DNS (Zaetheron)</h3>
+      <div class="dns-row"><span class="dns-name">Резолвер 1 (IPv6)</span><span class="dns-addr">2001:910:800::12<br>2001:910:800::40</span></div>
+      <div class="dns-row"><span class="dns-name">Резолвер 2 (IPv6)</span><span class="dns-addr">2001:1608:10:25::1c04:b12f<br>2001:1608:10:25::9249:d69b</span></div>
+      <p class="muted-text">Эти адреса и зашиты в профиль «Оптимизировать» выше — вручную вводить не обязательно.</p>
+    </div>
+
+    <div class="card opt-section" style="margin-top:14px;">
+      <h3>Публичные DNS (запасной вариант)</h3>
       <div class="dns-row"><span class="dns-name">Cloudflare (IPv6)</span><span class="dns-addr">2606:4700:4700::1111<br>2606:4700:4700::1001</span></div>
       <div class="dns-row"><span class="dns-name">Cloudflare (IPv4)</span><span class="dns-addr">1.1.1.1 / 1.0.0.1</span></div>
       <div class="dns-row"><span class="dns-name">Quad9 (IPv6)</span><span class="dns-addr">2620:fe::fe<br>2620:fe::9</span></div>
       <div class="dns-row"><span class="dns-name">Quad9 (IPv4)</span><span class="dns-addr">9.9.9.9 / 149.112.112.112</span></div>
-      <div class="dns-row"><span class="dns-name">Google (IPv6)</span><span class="dns-addr">2001:4860:4860::8888<br>2001:4860:4860::8844</span></div>
-      <div class="dns-row"><span class="dns-name">Google (IPv4)</span><span class="dns-addr">8.8.8.8 / 8.8.4.4</span></div>
     </div>
 
     <div class="card opt-section" style="margin-top:14px;">
-      <h3>Как настроить DNS на iPhone</h3>
+      <h3>Как настроить DNS вручную</h3>
       <ol class="opt-list">
         <li>Wi-Fi: Настройки → Wi-Fi → значок (i) у вашей сети → «Настроить DNS» → «Вручную» → удалить старые адреса и добавить нужные.</li>
-        <li>Сотовая сеть: системный DNS для мобильного интернета напрямую в «Настройках» не меняется — используйте официальное приложение «1.1.1.1» (Cloudflare) или «Quad9 Connect». На iOS они технически регистрируются как VPN-профиль (так требует Apple API), но никуда не туннелируют трафик — только шифруют DNS-запросы.</li>
+        <li>Сотовая сеть + Wi-Fi сразу: кнопка «Оптимизировать» выше — устанавливает системный профиль DNS, покрывает оба типа подключения одним действием.</li>
         <li>После смены DNS перезапустите Wi-Fi (выключить/включить) или перезагрузите телефон.</li>
       </ol>
     </div>
@@ -356,36 +377,59 @@
       <h3>Общая оптимизация устройства</h3>
       <ul class="opt-list">
         <li>Настройки → Основные → Обновление ПО — держите iOS актуальной.</li>
-        <li>Настройки → Основные → Хранилище iPhone — раз в месяц чистить неиспользуемое.</li>
-        <li>Настройки → Основные → Фоновое обновление приложений — отключить для неиспользуемых приложений.</li>
+        <li>Настройки → Основные → Хранилище iPhone — раз в месяц чистить неиспользуемое; после 80% заполнения система начинает подтормаживать при записи.</li>
+        <li>Настройки → Основные → Фоновое обновление приложений — отключить для всех приложений, кроме мессенджеров.</li>
         <li>Перезагружайте телефон каждые несколько дней — сбрасывает утечки памяти в фоновых процессах.</li>
-        <li>Настройки → Батарея → проверяйте «Работоспособность аккумулятора» — сильно изношенная батарея сама снижает производительность.</li>
+        <li>Настройки → Батарея → «Работоспособность аккумулятора» — при сильном износе iOS сама снижает пиковую производительность (throttling), в этом случае поможет только замена батареи.</li>
+        <li>Settings → Основные → AirDrop/Handoff — выключить, если не используете: постоянное фоновое Bluetooth-сканирование грузит систему.</li>
       </ul>
     </div>
 
     <div class="card opt-section" style="margin-top:14px;">
-      <h3>Для игр</h3>
+      <h3>Мощный тир — для игр</h3>
       <ul class="opt-list">
-        <li>Подключайтесь к Wi-Fi в диапазоне 5 ГГц, а не 2.4 ГГц — ниже задержка, меньше помех.</li>
-        <li>Закрывайте фоновые приложения перед игрой (смахнуть вверх в App Switcher).</li>
-        <li>Отключите Bluetooth, если не используете беспроводной контроллер/наушники.</li>
-        <li>iOS 18+: включите «Игровой режим» — активируется автоматически в полноэкранных играх, приоритизирует CPU/GPU и снижает задержку Bluetooth-аксессуаров.</li>
-        <li>Отключите уведомления фоновых приложений на время сессии (Фокусирование → «Игра» в Пункте управления).</li>
-        <li>Для соревновательных игр по возможности используйте проводные наушники — меньше задержка звука, чем у Bluetooth.</li>
+        <li>Подключайтесь к Wi-Fi в диапазоне 5 ГГц, а не 2.4 ГГц — ниже задержка, меньше помех от соседних сетей.</li>
+        <li>Закрывайте все фоновые приложения перед игрой (смахнуть вверх в App Switcher), особенно с активной синхронизацией (Фото в iCloud, облачные диски).</li>
+        <li>Отключите Bluetooth, если не используете беспроводной контроллер/наушники — освобождает радиомодуль под Wi-Fi/игровые аксессуары.</li>
+        <li>iOS 18+: включите «Игровой режим» (Настройки → Основные, или свайпом активируется автоматически в полноэкранных играх) — приоритизирует CPU/GPU игре и снижает задержку опроса Bluetooth-контроллеров/наушников.</li>
+        <li>Пункт управления → Фокусирование → создайте профиль «Игра»: глушит уведомления не связанных с игрой приложений на время сессии.</li>
+        <li>Ярлыки (Shortcuts) → создайте автоматизацию «При открытии [игра]» → действия «Установить режим энергосбережения: выкл» + «Включить фокусирование Игра» — запускается само при старте игры.</li>
+        <li>Для соревновательных игр — проводные наушники: задержка звука ощутимо ниже, чем у любого Bluetooth-кодека.</li>
+        <li>Не держите телефон в чехле при долгой сессии — перегрев — главная причина троттлинга производительности на iPhone.</li>
       </ul>
     </div>
 
     <div class="card opt-section" style="margin-top:14px;">
-      <h3>Качество картинки</h3>
+      <h3>Мощный тир — качество картинки</h3>
       <ul class="opt-list">
-        <li>Настройки → Экран и яркость → True Tone — выключите для точной, некорректируемой цветопередачи.</li>
+        <li>Настройки → Экран и яркость → True Tone — выключите для точной, некорректируемой цветопередачи в играх и при цветокоррекции контента.</li>
         <li>Ночной режим (Night Shift) — выключайте на время игр/просмотра, чтобы не искажались цвета.</li>
-        <li>Включайте HDR для видео/контента, где он поддерживается экраном.</li>
-        <li>Настройки → Специальные возможности → Дисплей — «Уменьшение движения» выключено = более плавная анимация; включено = ниже нагрузка на GPU и стабильнее FPS в тяжёлых играх.</li>
-        <li>Ручная яркость на максимум только при необходимости — авто-яркость экономит и не искажает восприятие цвета при чтении экрана в помещении.</li>
+        <li>Включайте HDR для видео/контента, где он поддерживается экраном (Настройки → Экран и яркость → Видео в HDR).</li>
+        <li>Настройки → Специальные возможности → Движение → «Уменьшение движения» включено = ниже нагрузка на GPU и стабильнее FPS в тяжёлых играх, выключено = плавнее системная анимация.</li>
+        <li>Настройки → Специальные возможности → Дисплей → «Увеличить контрастность» — полезно для точного восприятия тёмных сцен.</li>
+        <li>Ручная яркость вместо авто — устраняет паразитные скачки экспозиции экрана при съёмке видео с игры.</li>
       </ul>
     </div>
   </section>
+
+  <div id="optimizeModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">Установка профиля DNS</h3>
+      <p class="muted-text">
+        Сейчас скачается конфигурационный профиль iOS (.mobileconfig) с приватными DNS-резолверами
+        Zaetheron. Он не является VPN и не туннелирует трафик — меняется только резолвинг DNS,
+        системно на Wi-Fi и сотовой сети.
+      </p>
+      <p class="muted-text">
+        Установка происходит только через официальный системный экран iOS — приложение ничего не
+        меняет само. После скачивания: Настройки → Профиль загружен → Установить → код-пароль →
+        Установить ещё раз для подтверждения. В любой момент профиль можно удалить: Настройки →
+        Основные → VPN и управление устройством → выбрать профиль → Удалить.
+      </p>
+      <a id="modalDownloadLink" class="download-btn" href="#" style="display:block; margin-top:4px;">Скачать профиль</a>
+      <button id="modalCloseBtn" class="link-btn" style="margin-top:4px;">Отмена</button>
+    </div>
+  </div>
 
   <footer>zaetheron industry · поддержка через бота</footer>
   <p class="disclaimer">
@@ -396,6 +440,7 @@
     Рекомендации по оптимизации и сетевым настройкам приведены в справочных целях; вносите изменения в системные
     настройки самостоятельно и осознанно.
   </p>
+  <p class="private-mark">ZAETHERON PRIVATE</p>
 </main>
 
 <script>
@@ -447,6 +492,24 @@ async function initOptimizeTab() {
     pill.textContent = 'не удалось определить';
   }
 }
+
+/* ---------- модалка «Оптимизировать»: скачивание .mobileconfig ---------- */
+const optimizeModal = document.getElementById('optimizeModal');
+const optimizeBtn = document.getElementById('optimizeBtn');
+const modalDownloadLink = document.getElementById('modalDownloadLink');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+optimizeBtn.addEventListener('click', () => {
+  const savedKey = localStorage.getItem('zaetheron_key');
+  if (!savedKey) {
+    alert('Сначала введите и проверьте ключ во вкладке «Ключ».');
+    return;
+  }
+  modalDownloadLink.href = `${window.location.origin}/optimize.mobileconfig?key=${encodeURIComponent(savedKey)}`;
+  optimizeModal.style.display = 'flex';
+});
+modalCloseBtn.addEventListener('click', () => { optimizeModal.style.display = 'none'; });
+optimizeModal.addEventListener('click', (e) => { if (e.target === optimizeModal) optimizeModal.style.display = 'none'; });
 
 /* ---------- кулдаун 5 минут: общий хелпер для покупки и репорта ---------- */
 const COOLDOWN_MS = 5 * 60 * 1000;
