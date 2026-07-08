@@ -7,7 +7,7 @@ Zeus Midnight — сервер лицензионных ключей.
     ZEUS_ADMIN_TOKEN   — токен для /deactivate (поменяй в Railway Variables)
 
 Запуск локально:
-    pip install fastapi uvicorn psycopg2-binary
+    pip install fastapi uvicorn psycopg2-binary cryptography
     DATABASE_URL=postgresql://... python key_server.py
 """
 import hashlib
@@ -17,6 +17,7 @@ import os
 import time
 import uuid
 import plistlib
+import datetime
 from urllib.parse import parse_qsl
 
 import psycopg2
@@ -26,6 +27,11 @@ from contextlib import closing
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import pkcs7
 
 DATABASE_URL  = os.environ["DATABASE_URL"]  # Railway подставляет автоматически
 ADMIN_TOKEN   = os.environ.get("ZEUS_ADMIN_TOKEN", "change-me-now")
@@ -33,6 +39,57 @@ DOWNLOAD_URL  = os.environ.get(
     "DOWNLOAD_URL",
     "https://drive.google.com/file/d/1sMyDNsyQUdOPkn2Pns8I13f58IQ7tgS8/view?usp=drive_link",
 )
+
+# --- Подпись .mobileconfig (PKCS#7 / CMS) ---
+# Без подписи iOS помечает профиль как «Not Signed» и в некоторых конфигурациях
+# устройства (ограничения Screen Time / MDM) вообще не даёт его установить.
+# Если заданы ZAETHERON_SIGN_CERT_PEM и ZAETHERON_SIGN_KEY_PEM (например, реальный
+# сертификат для подписи объектов от доверенного удостоверяющего центра) —
+# используем их, тогда профиль будет показывать «Verified» на устройстве.
+# Если не заданы — генерируем самоподписанный сертификат один раз при старте
+# процесса: профиль будет подписан («Not Signed» исчезнет), но останется
+# статус «Not Verified», так как самоподписанный сертификат не входит в цепочку
+# доверия iOS. Полностью «зелёная» проверка требует покупного сертификата
+# для подписи объектов (object-signing) у поддерживаемого Apple CA.
+SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
+SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
+
+
+def _generate_self_signed_signing_identity():
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "Zaetheron Industry Signing"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Zaetheron"),
+    ])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
+        .sign(key, hashes.SHA256())
+    )
+    return cert, key
+
+
+if SIGN_CERT_PEM and SIGN_KEY_PEM:
+    _sign_cert = x509.load_pem_x509_certificate(SIGN_CERT_PEM.encode())
+    _sign_key = serialization.load_pem_private_key(SIGN_KEY_PEM.encode(), password=None)
+else:
+    _sign_cert, _sign_key = _generate_self_signed_signing_identity()
+
+
+def sign_mobileconfig(plist_bytes: bytes) -> bytes:
+    """Оборачивает plist в PKCS#7/CMS (opaque-signed, не detached) — именно так
+    Apple ожидает подписанные .mobileconfig."""
+    return (
+        pkcs7.PKCS7SignatureBuilder()
+        .set_data(plist_bytes)
+        .add_signer(_sign_cert, _sign_key, hashes.SHA256())
+        .sign(serialization.Encoding.DER, [pkcs7.PKCS7Options.Binary])
+    )
 
 # Кулдаун (в секундах) на повторные заявки на покупку / обращения в поддержку
 COOLDOWN_SECONDS = 5 * 60
@@ -428,8 +485,9 @@ def optimize_mobileconfig(key: str):
                 raise HTTPException(403, "expired")
 
     config_bytes = build_dns_mobileconfig(PRIVATE_DNS_SERVERS)
+    signed_bytes = sign_mobileconfig(config_bytes)
     return Response(
-        content=config_bytes,
+        content=signed_bytes,
         media_type="application/x-apple-aspen-config",
         headers={"Content-Disposition": "attachment; filename=ZAETHERON.mobileconfig"},
     )
