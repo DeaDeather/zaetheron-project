@@ -416,9 +416,9 @@
     <div class="modal-box">
       <h3 style="margin-top:0;">Установка профиля DNS</h3>
       <p class="muted-text">
-        Сейчас скачается конфигурационный профиль iOS (.mobileconfig) с приватными DNS-резолверами
-        Zaetheron. Он не является VPN и не туннелирует трафик — меняется только резолвинг DNS,
-        системно на Wi-Fi и сотовой сети.
+        Сейчас откроется Safari и скачается конфигурационный профиль iOS (.mobileconfig) с именем
+        «ZAETHERON» и приватными DNS-резолверами. Он не является VPN и не туннелирует трафик —
+        меняется только резолвинг DNS, системно на Wi-Fi и сотовой сети.
       </p>
       <p class="muted-text">
         Установка происходит только через официальный системный экран iOS — приложение ничего не
@@ -446,6 +446,22 @@
 <script>
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+
+/* ---------- скачивание файлов из Telegram Mini App ----------
+   Внутри встроенного WebView Telegram обычный клик по <a href> часто
+   ничего не делает: не показывает системный экран установки .mobileconfig
+   и не всегда открывает внешние ссылки (например, Google Drive).
+   tg.openLink() принудительно открывает URL в системном браузере (Safari),
+   где эти сценарии работают штатно. Вне Telegram (обычный браузер) —
+   просто открываем ссылку как обычно. */
+function openDownload(url) {
+  if (!url || url === '#') return;
+  if (tg && typeof tg.openLink === 'function') {
+    tg.openLink(url, { try_instant_view: false });
+  } else {
+    window.open(url, '_blank');
+  }
+}
 
 /* ---------- вкладки ---------- */
 const tabs = {
@@ -507,6 +523,10 @@ optimizeBtn.addEventListener('click', () => {
   }
   modalDownloadLink.href = `${window.location.origin}/optimize.mobileconfig?key=${encodeURIComponent(savedKey)}`;
   optimizeModal.style.display = 'flex';
+});
+modalDownloadLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  openDownload(modalDownloadLink.href);
 });
 modalCloseBtn.addEventListener('click', () => { optimizeModal.style.display = 'none'; });
 optimizeModal.addEventListener('click', (e) => { if (e.target === optimizeModal) optimizeModal.style.display = 'none'; });
@@ -640,6 +660,7 @@ checkBtn.addEventListener('click', async () => {
       if (data.download_url) {
         downloadLink.href = data.download_url;
         downloadLink.style.display = 'block';
+        downloadLink.onclick = (e) => { e.preventDefault(); openDownload(downloadLink.href); };
       }
     } else {
       statusEl.textContent = reasonToText(data.detail);
@@ -728,6 +749,7 @@ async function refreshProfile() {
       if (data.download_url) {
         profileDownloadLink.href = data.download_url;
         profileDownloadLink.style.display = 'block';
+        profileDownloadLink.onclick = (e) => { e.preventDefault(); openDownload(profileDownloadLink.href); };
       }
       hasValidKey = true;
     } else {
