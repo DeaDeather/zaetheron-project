@@ -257,7 +257,8 @@ async def my_key(message: Message):
 
 @dp.message(Command("resethwid"))
 async def reset_hwid_cmd(message: Message):
-    """Сброс привязки устройства к ключу — доступно только админу."""
+    """Сброс привязки устройства к ключу — доступно только админу.
+    У каждого ключа ограниченный лимит сбросов (resets_left, по умолчанию 2 — задаётся в /addkey)."""
     if not is_admin(message):
         return
 
@@ -275,21 +276,28 @@ async def reset_hwid_cmd(message: Message):
     try:
         with closing(db()) as conn:
             with conn.cursor() as cur:
+                cur.execute("SELECT resets_left FROM keys WHERE key = %s FOR UPDATE", (key,))
+                row = cur.fetchone()
+                if row is None:
+                    await message.answer(f"Ключ {key} не найден.")
+                    return
+                resets_left = row[0]
+                if resets_left <= 0:
+                    await message.answer(f"❌ У ключа {key} закончились сбросы привязки (лимит исчерпан).")
+                    return
                 cur.execute(
-                    "UPDATE keys SET hwid = NULL, activations = 0 WHERE key = %s",
+                    "UPDATE keys SET hwid = NULL, activations = 0, resets_left = resets_left - 1 WHERE key = %s",
                     (key,),
                 )
                 conn.commit()
-                found = cur.rowcount > 0
     except Exception as e:
         logging.exception("Ошибка при сбросе привязки")
         await message.answer(f"Не удалось сбросить привязку: {e}")
         return
 
-    if found:
-        await message.answer(f"✅ Привязка устройства для ключа {key} сброшена.")
-    else:
-        await message.answer(f"Ключ {key} не найден.")
+    await message.answer(
+        f"✅ Привязка устройства для ключа {key} сброшена. Осталось сбросов: {resets_left - 1}."
+    )
 
 
 @dp.message(Command("support"))

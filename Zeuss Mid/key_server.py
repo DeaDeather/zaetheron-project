@@ -15,6 +15,8 @@ import hmac
 import json
 import os
 import time
+import uuid
+import plistlib
 from urllib.parse import parse_qsl
 
 import psycopg2
@@ -22,7 +24,7 @@ import psycopg2.extras
 import requests
 from contextlib import closing
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 DATABASE_URL  = os.environ["DATABASE_URL"]  # Railway подставляет автоматически
@@ -34,6 +36,49 @@ DOWNLOAD_URL  = os.environ.get(
 
 # Кулдаун (в секундах) на повторные заявки на покупку / обращения в поддержку
 COOLDOWN_SECONDS = 5 * 60
+
+# Приватные DNS-резолверы для профиля «Оптимизация» (IPv6, без логирования/фильтрации на стороне операторов).
+# Порядок важен — первые в списке используются приоритетно.
+PRIVATE_DNS_SERVERS = [
+    "2001:910:800::12",
+    "2001:910:800::40",
+    "2001:1608:10:25::1c04:b12f",
+    "2001:1608:10:25::9249:d69b",
+]
+
+
+def build_dns_mobileconfig(servers: list[str]) -> bytes:
+    """Генерирует конфигурационный профиль iOS (тип com.apple.dnsSettings.managed).
+    Меняет системный DNS (Wi-Fi + сотовая сеть) БЕЗ VPN-туннеля — трафик не проходит
+    через сторонний сервер, туннелируется только резолвинг имён.
+    Установка требует явных действий владельца устройства: Настройки → Профиль загружен →
+    Установить → код-пароль → Установить (несколько подтверждений на стороне iOS)."""
+    payload_uuid = str(uuid.uuid4())
+    profile_uuid = str(uuid.uuid4())
+    profile = {
+        "PayloadContent": [
+            {
+                "PayloadType": "com.apple.dnsSettings.managed",
+                "PayloadUUID": payload_uuid,
+                "PayloadIdentifier": f"com.zaetheron.dns.{payload_uuid}",
+                "PayloadDisplayName": "Zaetheron Private DNS",
+                "PayloadVersion": 1,
+                "DNSSettings": {
+                    "DNSProtocol": "Cleartext",
+                    "ServerAddresses": servers,
+                },
+            }
+        ],
+        "PayloadDisplayName": "ZAETHERON PRIVATE — DNS",
+        "PayloadDescription": "Системный DNS на приватные резолверы. Не туннелирует трафик, не является VPN.",
+        "PayloadIdentifier": f"com.zaetheron.profile.{profile_uuid}",
+        "PayloadOrganization": "Zaetheron",
+        "PayloadRemovalDisallowed": False,
+        "PayloadType": "Configuration",
+        "PayloadUUID": profile_uuid,
+        "PayloadVersion": 1,
+    }
+    return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
 
 # Нужны для отправки заявок на покупку прямо из мини-аппа, без sendData()
 BOT_TOKEN       = os.environ.get("BOT_TOKEN")
@@ -369,19 +414,46 @@ def check(req: CheckReq):
             }
 
 
+@app.get("/optimize.mobileconfig")
+def optimize_mobileconfig(key: str):
+    """Отдаёт .mobileconfig с приватными DNS — только если ключ валиден (активен, не истёк)."""
+    key = _norm(key)
+    with closing(db()) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            row = cur.fetchone()
+            if row is None or not row["active"]:
+                raise HTTPException(403, "invalid_key")
+            if row["expires_at"] and row["expires_at"] < time.time():
+                raise HTTPException(403, "expired")
+
+    config_bytes = build_dns_mobileconfig(PRIVATE_DNS_SERVERS)
+    return Response(
+        content=config_bytes,
+        media_type="application/x-apple-aspen-config",
+        headers={"Content-Disposition": "attachment; filename=zaetheron-private-dns.mobileconfig"},
+    )
+
+
 @app.post("/reset_hwid")
 def reset_hwid(req: ResetHwidReq):
     if req.admin_token != ADMIN_TOKEN:
         raise HTTPException(401, "Неверный admin_token")
     key = _norm(req.key)
     with closing(db()) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE keys SET hwid = NULL, activations = 0 WHERE key = %s", (key,))
-            conn.commit()
-            if cur.rowcount == 0:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT resets_left FROM keys WHERE key = %s FOR UPDATE", (key,))
+            row = cur.fetchone()
+            if row is None:
                 raise HTTPException(404, "Ключ не найден")
-        return {"ok": True}
+            if row["resets_left"] <= 0:
+                raise HTTPException(403, "Сбросы привязки для этого ключа закончились")
+            cur.execute(
+                "UPDATE keys SET hwid = NULL, activations = 0, resets_left = resets_left - 1 WHERE key = %s",
+                (key,),
+            )
+            conn.commit()
+        return {"ok": True, "resets_left": row["resets_left"] - 1}
 
 
 if __name__ == "__main__":
