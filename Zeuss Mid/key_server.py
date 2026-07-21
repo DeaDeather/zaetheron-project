@@ -34,14 +34,13 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs7
 
-DATABASE_URL  = os.environ["DATABASE_URL"]  # Railway подставляет автоматически
+DATABASE_URL  = os.environ["DATABASE_URL"]
 ADMIN_TOKEN   = os.environ.get("ZEUS_ADMIN_TOKEN", "change-me-now")
 DOWNLOAD_URL  = os.environ.get(
     "DOWNLOAD_URL",
     "https://drive.google.com/file/d/1sMyDNsyQUdOPkn2Pns8I13f58IQ7tgS8/view?usp=drive_link",
 )
 
-# --- Подпись .mobileconfig (PKCS#7 / CMS) ---
 SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
 SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
 
@@ -124,7 +123,6 @@ def build_dns_mobileconfig(servers: list[str], server_name: str) -> bytes:
 
 
 def build_basic_mobileconfig() -> bytes:
-    """Урезанный профиль без DNS-оптимизации — только базовая идентификация Zaetheron."""
     profile_uuid = str(uuid.uuid4())
     payload_uuid = str(uuid.uuid4())
     profile = {
@@ -168,11 +166,6 @@ app.mount("/static", StaticFiles(directory="webapp/static"), name="static")
 @app.get("/app")
 def webapp():
     return FileResponse("webapp/index.html")
-
-
-@app.get("/optimize-guide")
-def optimize_guide():
-    return FileResponse("webapp/optimize.html")
 
 
 @app.get("/manifest.json")
