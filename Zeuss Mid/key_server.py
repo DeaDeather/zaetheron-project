@@ -10,6 +10,8 @@ Zeus Midnight — сервер лицензионных ключей.
     pip install fastapi uvicorn psycopg2-binary cryptography
     DATABASE_URL=postgresql://... python key_server.py
 """
+from fastapi.staticfiles 
+import StaticFiles
 import hashlib
 import hmac
 import json
