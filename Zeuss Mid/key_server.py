@@ -10,8 +10,6 @@ Zeus Midnight — сервер лицензионных ключей.
     pip install fastapi uvicorn psycopg2-binary cryptography
     DATABASE_URL=postgresql://... python key_server.py
 """
-from fastapi.staticfiles 
-import StaticFiles
 import hashlib
 import hmac
 import json
@@ -28,6 +26,7 @@ import requests
 from contextlib import closing
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -43,16 +42,6 @@ DOWNLOAD_URL  = os.environ.get(
 )
 
 # --- Подпись .mobileconfig (PKCS#7 / CMS) ---
-# Без подписи iOS помечает профиль как «Not Signed» и в некоторых конфигурациях
-# устройства (ограничения Screen Time / MDM) вообще не даёт его установить.
-# Если заданы ZAETHERON_SIGN_CERT_PEM и ZAETHERON_SIGN_KEY_PEM (например, реальный
-# сертификат для подписи объектов от доверенного удостоверяющего центра) —
-# используем их, тогда профиль будет показывать «Verified» на устройстве.
-# Если не заданы — генерируем самоподписанный сертификат один раз при старте
-# процесса: профиль будет подписан («Not Signed» исчезнет), но останется
-# статус «Not Verified», так как самоподписанный сертификат не входит в цепочку
-# доверия iOS. Полностью «зелёная» проверка требует покупного сертификата
-# для подписи объектов (object-signing) у поддерживаемого Apple CA.
 SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
 SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
 
@@ -84,8 +73,6 @@ else:
 
 
 def sign_mobileconfig(plist_bytes: bytes) -> bytes:
-    """Оборачивает plist в PKCS#7/CMS (opaque-signed, не detached) — именно так
-    Apple ожидает подписанные .mobileconfig."""
     return (
         pkcs7.PKCS7SignatureBuilder()
         .set_data(plist_bytes)
@@ -93,14 +80,8 @@ def sign_mobileconfig(plist_bytes: bytes) -> bytes:
         .sign(serialization.Encoding.DER, [pkcs7.PKCS7Options.Binary])
     )
 
-# Кулдаун (в секундах) на повторные заявки на покупку / обращения в поддержку
 COOLDOWN_SECONDS = 5 * 60
 
-# DNS-резолвер для профиля «Оптимизация» — Quad9 через DNS over TLS.
-# Важно: рабочие профили com.apple.dnsSettings.managed для ручной установки
-# всегда используют шифрованный DNS (TLS/HTTPS) и указывают адреса и IPv4, и IPv6
-# сразу. Профиль с DNSProtocol=Cleartext и только IPv6-адресами — именно то,
-# на чём служба DNS Settings на iOS падает с «внутренней ошибкой».
 PRIVATE_DNS_SERVER_NAME = "dns.quad9.net"
 PRIVATE_DNS_SERVERS = [
     "9.9.9.9",
@@ -111,11 +92,6 @@ PRIVATE_DNS_SERVERS = [
 
 
 def build_dns_mobileconfig(servers: list[str], server_name: str) -> bytes:
-    """Генерирует конфигурационный профиль iOS (тип com.apple.dnsSettings.managed),
-    DNS over TLS на Quad9. Меняет системный DNS (Wi-Fi + сотовая сеть) БЕЗ VPN-туннеля —
-    трафик не проходит через сторонний сервер, шифруется только резолвинг имён.
-    Установка требует явных действий владельца устройства: Настройки → Профиль загружен →
-    Установить → код-пароль → Установить (несколько подтверждений на стороне iOS)."""
     payload_uuid = str(uuid.uuid4())
     profile_uuid = str(uuid.uuid4())
     profile = {
@@ -124,7 +100,7 @@ def build_dns_mobileconfig(servers: list[str], server_name: str) -> bytes:
                 "PayloadType": "com.apple.dnsSettings.managed",
                 "PayloadUUID": payload_uuid,
                 "PayloadIdentifier": f"com.zaetheron.dns.{payload_uuid}",
-                "PayloadDisplayName": "ZAETHERON",
+                "PayloadDisplayName": "Zaetheron OPTIM",
                 "PayloadDescription": "Configures device to use Quad9 Encrypted DNS over TLS",
                 "PayloadVersion": 1,
                 "ProhibitDisablement": False,
@@ -135,7 +111,7 @@ def build_dns_mobileconfig(servers: list[str], server_name: str) -> bytes:
                 },
             }
         ],
-        "PayloadDisplayName": "ZAETHERON",
+        "PayloadDisplayName": "Zaetheron OPTIM",
         "PayloadDescription": "Системный DNS на приватные резолверы. Не туннелирует трафик, не является VPN.",
         "PayloadIdentifier": f"com.zaetheron.profile.{profile_uuid}",
         "PayloadOrganization": "Zaetheron",
@@ -146,18 +122,67 @@ def build_dns_mobileconfig(servers: list[str], server_name: str) -> bytes:
     }
     return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
 
-# Нужны для отправки заявок на покупку прямо из мини-аппа, без sendData()
+
+def build_basic_mobileconfig() -> bytes:
+    """Урезанный профиль без DNS-оптимизации — только базовая идентификация Zaetheron."""
+    profile_uuid = str(uuid.uuid4())
+    payload_uuid = str(uuid.uuid4())
+    profile = {
+        "PayloadContent": [
+            {
+                "PayloadType": "com.apple.dnsSettings.managed",
+                "PayloadUUID": payload_uuid,
+                "PayloadIdentifier": f"com.zaetheron.basic.{payload_uuid}",
+                "PayloadDisplayName": "Zaetheron BASIC",
+                "PayloadDescription": "Базовый профиль Zaetheron",
+                "PayloadVersion": 1,
+                "ProhibitDisablement": False,
+                "DNSSettings": {
+                    "DNSProtocol": "TLS",
+                    "ServerAddresses": PRIVATE_DNS_SERVERS,
+                    "ServerName": PRIVATE_DNS_SERVER_NAME,
+                },
+            }
+        ],
+        "PayloadDisplayName": "Zaetheron BASIC",
+        "PayloadDescription": "Базовая конфигурация Zaetheron",
+        "PayloadIdentifier": f"com.zaetheron.basic.profile.{profile_uuid}",
+        "PayloadOrganization": "Zaetheron",
+        "PayloadRemovalDisallowed": False,
+        "PayloadType": "Configuration",
+        "PayloadUUID": profile_uuid,
+        "PayloadVersion": 1,
+    }
+    return plistlib.dumps(profile, fmt=plistlib.FMT_XML)
+
+
 BOT_TOKEN       = os.environ.get("BOT_TOKEN")
 ADMIN_CHAT_ID   = os.environ.get("ADMIN_CHAT_ID")
 SELLER_USERNAME = os.environ.get("SELLER_USERNAME", "hopeyng")
 
 app = FastAPI(title="Zeus Midnight License Server")
 
+app.mount("/static", StaticFiles(directory="webapp/static"), name="static")
+
 
 @app.get("/app")
 def webapp():
-    """Отдаёт Telegram Mini App (webapp/index.html)."""
     return FileResponse("webapp/index.html")
+
+
+@app.get("/optimize-guide")
+def optimize_guide():
+    return FileResponse("webapp/optimize.html")
+
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse("webapp/manifest.json", media_type="application/manifest+json")
+
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse("webapp/sw.js", media_type="application/javascript")
 
 
 def db():
@@ -167,8 +192,6 @@ def db():
 
 
 def verify_init_data(init_data: str):
-    """Проверяет подпись Telegram WebApp initData. Возвращает словарь пользователя или None,
-    если подпись неверна (значит запрос не из настоящего Telegram)."""
     if not BOT_TOKEN or not init_data:
         return None
     try:
@@ -184,7 +207,7 @@ def verify_init_data(init_data: str):
     if not hmac.compare_digest(computed_hash, received_hash):
         return None
     auth_date = int(pairs.get("auth_date", "0"))
-    if time.time() - auth_date > 86400:  # старше суток — на всякий случай отклоняем
+    if time.time() - auth_date > 86400:
         return None
     user_raw = pairs.get("user")
     if not user_raw:
@@ -208,7 +231,7 @@ def tg_send_message(chat_id, text, reply_markup=None):
             timeout=10,
         )
     except Exception:
-        pass  # не роняем запрос покупателя из-за проблем с уведомлением
+        pass
 
 
 def init_db():
@@ -227,9 +250,7 @@ def init_db():
                     created_at BIGINT
                 )
             """)
-            # На случай, если таблица уже существовала без этой колонки
             cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS telegram_id BIGINT")
-            # Кулдауны на /buy и /report — persist между рестартами, ключ = (user_id, action)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS request_cooldowns (
                     user_id BIGINT NOT NULL,
@@ -244,8 +265,6 @@ init_db()
 
 
 def check_cooldown(conn, cur, user_id: int, action: str):
-    """Проверяет и, если разрешено, сразу обновляет кулдаун для (user_id, action).
-    Возвращает (allowed: bool, retry_after_seconds: int)."""
     now = int(time.time())
     cur.execute(
         "SELECT last_ts FROM request_cooldowns WHERE user_id = %s AND action = %s",
@@ -374,8 +393,6 @@ def deactivate(req: DeactivateReq):
 
 @app.post("/buy")
 def buy(req: BuyReq):
-    """Мини-апп стучится сюда напрямую при нажатии «Купить» —
-    работает независимо от того, как открыт мини-апп (inline-кнопка, меню и т.д.)."""
     user = verify_init_data(req.init_data)
     if not user:
         raise HTTPException(401, "invalid_init_data")
@@ -420,8 +437,6 @@ def buy(req: BuyReq):
 
 @app.post("/report")
 def report(req: ReportReq):
-    """Мини-апп: отправить обращение/репорт в поддержку (тот же поток, что и /support у бота,
-    но доступно прямо из интерфейса). Ограничено кулдауном, чтобы не заваливать админа."""
     user = verify_init_data(req.init_data)
     if not user:
         raise HTTPException(401, "invalid_init_data")
@@ -459,7 +474,6 @@ def report(req: ReportReq):
 
 @app.post("/check")
 def check(req: CheckReq):
-    """Используется мини-аппом: показывает статус ключа и ссылку на скачивание."""
     key = _norm(req.key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -482,7 +496,6 @@ def check(req: CheckReq):
 
 @app.get("/optimize.mobileconfig")
 def optimize_mobileconfig(key: str):
-    """Отдаёт .mobileconfig с приватными DNS — только если ключ валиден (активен, не истёк)."""
     key = _norm(key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -498,7 +511,28 @@ def optimize_mobileconfig(key: str):
     return Response(
         content=signed_bytes,
         media_type="application/x-apple-aspen-config",
-        headers={"Content-Disposition": "attachment; filename=ZAETHERON.mobileconfig"},
+        headers={"Content-Disposition": "attachment; filename=ZaetheronOPTIM.mobileconfig"},
+    )
+
+
+@app.get("/basic.mobileconfig")
+def basic_mobileconfig(key: str):
+    key = _norm(key)
+    with closing(db()) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            row = cur.fetchone()
+            if row is None or not row["active"]:
+                raise HTTPException(403, "invalid_key")
+            if row["expires_at"] and row["expires_at"] < time.time():
+                raise HTTPException(403, "expired")
+
+    config_bytes = build_basic_mobileconfig()
+    signed_bytes = sign_mobileconfig(config_bytes)
+    return Response(
+        content=signed_bytes,
+        media_type="application/x-apple-aspen-config",
+        headers={"Content-Disposition": "attachment; filename=ZaetheronBASIC.mobileconfig"},
     )
 
 
