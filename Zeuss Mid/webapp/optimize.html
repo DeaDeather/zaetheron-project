@@ -17,6 +17,7 @@ button{font-family:inherit;cursor:pointer;}
 .glass{background:rgba(255,255,255,0.06);backdrop-filter:blur(18px);border:1px solid rgba(180,170,255,0.22);border-radius:18px;}
 .tabpane{display:none;}
 .tabpane.active{display:block;}
+.logo-fallback{width:56px;height:56px;border-radius:16px;background:linear-gradient(160deg,rgba(140,120,255,0.35),rgba(90,70,200,0.15));border:1px solid rgba(180,170,255,0.35);display:flex;align-items:center;justify-content:center;}
 </style>
 </head>
 <body>
@@ -25,9 +26,8 @@ button{font-family:inherit;cursor:pointer;}
 <canvas id="starCanvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:2;"></canvas>
 
 <div id="keyScreen" style="position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;transition:opacity .6s ease;">
-<div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(160deg,rgba(140,120,255,0.35),rgba(90,70,200,0.15));border:1px solid rgba(180,170,255,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
-<i class="ti ti-bolt" style="font-size:26px;color:#c9c2ff;"></i>
-</div>
+<img src="/static/logo.png" onerror="this.style.display='none';document.getElementById('logoFallback1').style.display='flex';" style="width:56px;height:56px;border-radius:16px;object-fit:cover;margin-bottom:18px;">
+<div id="logoFallback1" class="logo-fallback" style="display:none;margin-bottom:18px;"><i class="ti ti-bolt" style="font-size:26px;color:#c9c2ff;"></i></div>
 <div style="font-size:20px;font-weight:500;color:#f2f0ff;margin-bottom:4px;">Zaetheron</div>
 <div style="font-size:13px;color:#a29ecb;margin-bottom:28px;">Введите ключ доступа</div>
 <div class="glass" style="width:100%;max-width:340px;padding:20px;">
@@ -41,8 +41,14 @@ button{font-family:inherit;cursor:pointer;}
 <div style="flex:1;overflow-y:auto;padding:calc(env(safe-area-inset-top) + 20px) 20px 110px;max-width:480px;margin:0 auto;width:100%;">
 
 <div id="tab-home" class="tabpane active">
-<div style="font-size:12px;color:#a29ecb;margin-bottom:2px;">Добро пожаловать</div>
-<div style="font-size:19px;font-weight:500;color:#f2f0ff;margin-bottom:20px;">Zaetheron OS</div>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+<img src="/static/logo.png" onerror="this.style.display='none';document.getElementById('logoFallback2').style.display='flex';" style="width:40px;height:40px;border-radius:12px;object-fit:cover;">
+<div id="logoFallback2" class="logo-fallback" style="display:none;width:40px;height:40px;border-radius:12px;"><i class="ti ti-bolt" style="font-size:18px;color:#c9c2ff;"></i></div>
+<div>
+<div style="font-size:12px;color:#a29ecb;">Добро пожаловать</div>
+<div style="font-size:19px;font-weight:500;color:#f2f0ff;">Zaetheron OS</div>
+</div>
+</div>
 <div class="glass" style="padding:16px;display:flex;align-items:center;gap:12px;">
 <div style="width:38px;height:38px;border-radius:12px;background:rgba(120,220,180,0.15);display:flex;align-items:center;justify-content:center;"><i class="ti ti-check" style="color:#7fe0b8;font-size:18px;"></i></div>
 <div><div style="font-size:13px;color:#f2f0ff;">Ключ активен</div><div style="font-size:11px;color:#a29ecb;" id="homeKeyLabel">—</div></div>
@@ -60,13 +66,9 @@ button{font-family:inherit;cursor:pointer;}
 
 <div id="tab-optimize" class="tabpane">
 <div style="font-size:19px;font-weight:500;color:#f2f0ff;margin-bottom:18px;">Оптимизация</div>
-
 <button id="installBtn" class="glass" style="width:100%;padding:15px;border:1px solid rgba(180,170,255,0.3);background:linear-gradient(135deg,rgba(124,108,232,0.4),rgba(40,20,90,0.4));color:#f2f0ff;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;"><i class="ti ti-download"></i>Скачать приложение</button>
-
 <button id="optimizeBtn" class="glass" style="width:100%;padding:15px;border:1px solid rgba(180,170,255,0.3);color:#f2f0ff;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;"><i class="ti ti-bolt"></i>Оптимизировать сейчас</button>
-
 <button id="dnsBtn" class="glass" style="width:100%;padding:13px;color:#d8d4ff;font-size:13px;margin-bottom:20px;">Скачать DNS для игр</button>
-
 <div style="font-size:12px;color:#a29ecb;margin-bottom:10px;">Профили MDM</div>
 <button class="mdmBtn glass" data-variant="optim" style="width:100%;padding:13px;color:#d8d4ff;font-size:13px;margin-bottom:10px;text-align:left;display:flex;justify-content:space-between;align-items:center;"><span>Zaetheron OPTIM</span><i class="ti ti-download"></i></button>
 <button class="mdmBtn glass" data-variant="basic" style="width:100%;padding:13px;color:#d8d4ff;font-size:13px;text-align:left;display:flex;justify-content:space-between;align-items:center;"><span>Zaetheron BASIC</span><i class="ti ti-download"></i></button>
