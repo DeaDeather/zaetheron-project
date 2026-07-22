@@ -1,12 +1,11 @@
 {
-  "name": "Zaetheron Optimizer",
+  "name": "Zaetheron Industry",
   "short_name": "Zaetheron",
-  "start_url": "/optimize-guide",
+  "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#120c2e",
-  "theme_color": "#120c2e",
+  "background_color": "#060b1a",
+  "theme_color": "#060b1a",
   "icons": [
     { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png" }
