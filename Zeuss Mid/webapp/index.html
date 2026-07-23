@@ -526,7 +526,7 @@ if (installBtn) {
   }
   installBtn.addEventListener('click', () => {
     if (tg && typeof tg.openLink === 'function' && !isStandalone()) {
-      tg.openLink(`${window.location.origin}/app`, { try_instant_view: false });
+      tg.openLink(`${window.location.origin}/optimize`, { try_instant_view: false });
     } else {
       installModal.style.display = 'flex';
     }
