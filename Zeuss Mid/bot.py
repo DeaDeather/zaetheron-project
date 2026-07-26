@@ -92,7 +92,7 @@ def is_admin(message: Message) -> bool:
 def webapp_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[
-            InlineKeyboardButton(text="Открыть Zaetheron Industry", web_app=WebAppInfo(url=OPTIMIZE_URL))
+            InlineKeyboardButton(text="Открыть Zaetheron Industry", web_app=WebAppInfo(url=WEBAPP_URL))
         ]]
     )
 
