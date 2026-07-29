@@ -91,11 +91,11 @@ button{font-family:inherit;cursor:pointer;}
 </div>
 
 <div style="position:fixed;bottom:calc(env(safe-area-inset-bottom) + 14px);left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(20,14,40,0.55);backdrop-filter:blur(22px);border:1px solid rgba(180,170,255,0.25);border-radius:28px;padding:8px;z-index:6;">
-<button class="navBtn" data-tab="home" style="width:44px;height:44px;border-radius:20px;border:none;background:rgba(255,255,255,0.12);"><i class="ti ti-home" style="color:#f2f0ff;font-size:19px;"></i></button>
-<button class="navBtn" data-tab="key" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;"><i class="ti ti-key" style="color:#a29ecb;font-size:19px;"></i></button>
-<button class="navBtn" data-tab="optimize" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;"><i class="ti ti-bolt" style="color:#a29ecb;font-size:19px;"></i></button>
-<button class="navBtn" data-tab="doc" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;"><i class="ti ti-file-text" style="color:#a29ecb;font-size:19px;"></i></button>
-<button class="navBtn" data-tab="privacy" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;"><i class="ti ti-alert-circle" style="color:#a29ecb;font-size:19px;"></i></button>
+<button class="navBtn" data-tab="home" style="width:44px;height:44px;border-radius:20px;border:none;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#f2f0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-5h4v5h3a1 1 0 0 0 1-1v-9"/></svg></button>
+<button class="navBtn" data-tab="key" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a29ecb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="15" r="4"/><path d="M10 12 19 3"/><path d="M16 6l2.5 2.5"/><path d="M13.5 8.5 16 11"/></svg></button>
+<button class="navBtn" data-tab="optimize" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="#a29ecb" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg></button>
+<button class="navBtn" data-tab="doc" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a29ecb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></button>
+<button class="navBtn" data-tab="privacy" style="width:44px;height:44px;border-radius:20px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a29ecb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg></button>
 </div>
 </div>
 
@@ -327,10 +327,16 @@ setTimeout(function(){document.getElementById('keyScreen').style.display='flex';
 };
 
 var navBtns=document.querySelectorAll('.navBtn');
+function setNavIconColor(btn,color){
+var svg=btn.querySelector('svg');
+if(!svg)return;
+svg.setAttribute('stroke',color);
+if(svg.getAttribute('fill')&&svg.getAttribute('fill')!=='none'){svg.setAttribute('fill',color);}
+}
 navBtns.forEach(function(btn){
 btn.onclick=function(){
-navBtns.forEach(function(b){b.style.background='transparent';b.querySelector('i').style.color='#a29ecb';});
-btn.style.background='rgba(255,255,255,0.12)';btn.querySelector('i').style.color='#f2f0ff';
+navBtns.forEach(function(b){b.style.background='transparent';setNavIconColor(b,'#a29ecb');});
+btn.style.background='rgba(255,255,255,0.12)';setNavIconColor(btn,'#f2f0ff');
 document.querySelectorAll('.tabpane').forEach(function(t){t.classList.remove('active');});
 document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
 };
@@ -430,7 +436,9 @@ var steps=[
 {icon:'ti-device-gamepad-2',title:'🔒 iOS 26: загляните в баннер Game Mode',text:'В Пункте управления баннер Game Mode показывает задержку в реальном времени и даёт быстрый доступ к микрофону, уведомлениям и Performance Mode.'},
 {icon:'ti-headphones',title:'AirPods Pro/Max вместо обычной Bluetooth-гарнитуры',text:'Чип H2 даёт заметно более низкую аудиозадержку, чем большинство сторонних Bluetooth-наушников — критично в шутерах.'},
 {icon:'ti-power',title:'Перезагружайте телефон перед долгой сессией',text:'Перезапуск сбрасывает накопившиеся фоновые утечки памяти — игра стартует на «чистой» системе.'},
-{icon:'ti-magnet',title:'🔒 Снимите аксессуары MagSafe с задней панели',text:'Магнитные кольца и подставки ухудшают отвод тепла в самых горячих точках корпуса при долгой нагрузке.'}
+{icon:'ti-magnet',title:'🔒 Снимите аксессуары MagSafe с задней панели',text:'Магнитные кольца и подставки ухудшают отвод тепла в самых горячих точках корпуса при долгой нагрузке.'},
+{icon:'ti-contrast',title:'Уменьшите белую точку на OLED (Reduce White Point)',text:'Настройки → Универсальный доступ → Экран и размер текста → «Уменьшение белой точки». На OLED-моделях снижает нагрузку и нагрев экрана при высокой яркости — совет с зарубежных гайдов по геймингу на iPhone.'},
+{icon:'ti-flask',title:'🔒 TestFlight-бета игры вместо App Store версии',text:'У многих топовых игр есть публичный TestFlight — в бета-версиях разработчики иногда выкатывают улучшения производительности раньше, чем в App Store. Ищите ссылку в Discord/соцсетях игры.'}
 ];
 var list=document.getElementById('stepList');
 steps.forEach(function(st,i){
