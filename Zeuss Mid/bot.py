@@ -13,7 +13,8 @@ Zaetheron Industry — Telegram-бот.
     BOT_TOKEN=... ADMIN_CHAT_ID=... WEBAPP_URL=... DATABASE_URL=... python bot.py
 
 Админ-команды (доступны только ADMIN_CHAT_ID):
-    /addkey КЛЮЧ ДНИ [TELEGRAM_ID] [заметка]
+    /addkey 1d|3d|7d [TELEGRAM_ID] [заметка]   — сгенерировать ключ ZTH-XXXX-XXXX-XXXX
+    /addkey КЛЮЧ ДНИ [TELEGRAM_ID] [заметка]   — добавить свой ключ вручную
                                     — добавить ключ в базу, например:
                                     /addkey ZEUS-ABCD-1234 30 123456789 заказ от @username
                                     ДНИ = 0 означает "бессрочно"
@@ -32,6 +33,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+import secrets
 import time
 from contextlib import closing
 from datetime import datetime
@@ -45,6 +48,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     WebAppInfo,
+    FSInputFile,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -97,16 +101,54 @@ def webapp_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+BANNER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zeus_bg_01.jpg")
+WELCOME_TEXT = (
+    "Zaetheron Industry\n\n"
+    "Тарифы, статус ключа и скачивание клиента — в мини-приложении ниже.\n\n"
+    "Команды:\n"
+    "/mykey — посмотреть свой ключ и его статус\n"
+    "/support ТЕКСТ — написать в поддержку"
+)
+
+# Алфавит без похожих символов (0/O, 1/I/L)
+KEY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+KEY_PREFIX = "ZTH"
+AUTO_DAYS = {1, 3, 7}
+MIN_KEY_DIFF = 6  # минимум символов, которыми новый ключ должен отличаться от любого существующего
+
+
 @dp.message(CommandStart())
 async def start(message: Message):
-    await message.answer(
-        "Zaetheron Industry\n\n"
-        "Тарифы, статус ключа и скачивание клиента — в мини-приложении ниже.\n\n"
-        "Команды:\n"
-        "/mykey — посмотреть свой ключ и его статус\n"
-        "/support ТЕКСТ — написать в поддержку",
-        reply_markup=webapp_keyboard(),
-    )
+    if os.path.exists(BANNER_PATH):
+        await message.answer_photo(
+            FSInputFile(BANNER_PATH), caption=WELCOME_TEXT, reply_markup=webapp_keyboard()
+        )
+    else:
+        await message.answer(WELCOME_TEXT, reply_markup=webapp_keyboard())
+
+
+def _body(key: str) -> str:
+    return key.replace("-", "").upper()
+
+
+def fetch_existing_bodies() -> list:
+    with closing(db()) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT key FROM keys")
+            return [_body(r[0]) for r in cur.fetchall()]
+
+
+def generate_key(existing_bodies: list) -> str:
+    """ZTH-XXXX-XXXX-XXXX, криптостойкий генератор, без похожих ключей."""
+    for _ in range(1000):
+        body = "".join(secrets.choice(KEY_ALPHABET) for _ in range(12))
+        too_similar = any(
+            len(old) == 12 and sum(a != b for a, b in zip(body, old)) < MIN_KEY_DIFF
+            for old in existing_bodies
+        )
+        if not too_similar:
+            return f"{KEY_PREFIX}-{body[0:4]}-{body[4:8]}-{body[8:12]}"
+    raise RuntimeError("Не удалось подобрать непохожий ключ, попробуй ещё раз")
 
 
 @dp.message(Command("addkey"))
@@ -114,24 +156,45 @@ async def add_key(message: Message):
     if not is_admin(message):
         return  # чужие команды тихо игнорируем
 
+    if message.chat.type != "private":
+        await message.answer("Выполняй /addkey только в личке с ботом, не в группе.")
+        return
+
     if not DATABASE_URL:
         await message.answer("DATABASE_URL не настроена на этом сервисе, добавить ключ не могу.")
         return
 
+    usage = (
+        "Формат:\n"
+        "/addkey 1d|3d|7d [TELEGRAM_ID] [заметка] — сгенерировать ключ\n"
+        "/addkey КЛЮЧ ДНИ [TELEGRAM_ID] [заметка] — добавить свой ключ\n"
+        "TELEGRAM_ID необязателен: если указан, покупатель получит ключ в личку."
+    )
     parts = message.text.split()
-    if len(parts) < 3:
-        await message.answer(
-            "Формат: /addkey КЛЮЧ ДНИ [TELEGRAM_ID] [заметка]\n"
-            "Пример: /addkey ZEUS-ABCD-1234 30 123456789 заказ от @username\n"
-            "ДНИ = 0 означает «бессрочно»\n"
-            "TELEGRAM_ID необязателен — если указан, покупателю придёт уведомление "
-            "и он сможет смотреть ключ через /mykey"
-        )
+    if len(parts) < 2:
+        await message.answer(usage)
         return
 
-    key = parts[1].strip().upper()
-    raw_days = parts[2]
-    rest = parts[3:]
+    first = parts[1].strip().lower()
+    auto = re.fullmatch(r"(\d+)d", first) is not None
+    if auto:
+        days = int(first[:-1])
+        if days not in AUTO_DAYS:
+            await message.answer("Доступные сроки для генерации: 1d, 3d, 7d.")
+            return
+        rest = parts[2:]
+        key = None
+    else:
+        if len(parts) < 3:
+            await message.answer(usage)
+            return
+        key = parts[1].strip().upper()
+        try:
+            days = int(parts[2])
+        except ValueError:
+            await message.answer("ДНИ должно быть числом (0 = бессрочно).")
+            return
+        rest = parts[3:]
 
     buyer_id = None
     note = None
@@ -142,15 +205,11 @@ async def add_key(message: Message):
         else:
             note = " ".join(rest)
 
-    try:
-        days = int(raw_days)
-    except ValueError:
-        await message.answer("ДНИ должно быть числом (0 = бессрочно).")
-        return
-
     expires_at = int(time.time()) + days * 86400 if days > 0 else None
 
     try:
+        if auto:
+            key = generate_key(fetch_existing_bodies())
         with closing(db()) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -172,6 +231,8 @@ async def add_key(message: Message):
 
     expiry_text = "бессрочный" if days == 0 else f"на {days} дн."
     result_text = f"✅ Ключ добавлен: {key} ({expiry_text})"
+    if expires_at:
+        result_text += f"\nУдалится из базы после {datetime.fromtimestamp(expires_at).strftime('%d.%m.%Y %H:%M')}"
 
     if buyer_id:
         try:
@@ -180,8 +241,7 @@ async def add_key(message: Message):
                 f"🔑 Ваш ключ создан!\n\n"
                 f"Ключ: {key}\n"
                 f"Срок действия: {expiry_text}\n\n"
-                f"Проверить и активировать можно в мини-приложении (/start) "
-                f"или командой /mykey.",
+                f"Активировать можно в мини-приложении (/start) или командой /mykey.",
             )
             result_text += "\n📨 Покупатель уведомлён."
         except Exception as e:
@@ -189,6 +249,31 @@ async def add_key(message: Message):
             result_text += f"\n⚠️ Не удалось уведомить покупателя ({buyer_id}): {e}"
 
     await message.answer(result_text)
+
+
+def delete_expired() -> int:
+    if not DATABASE_URL:
+        return 0
+    with closing(db()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM keys WHERE expires_at IS NOT NULL AND expires_at < %s",
+                (int(time.time()),),
+            )
+            conn.commit()
+            return cur.rowcount
+
+
+async def cleanup_expired_loop():
+    """Раз в час удаляет истёкшие ключи из базы."""
+    while True:
+        try:
+            deleted = await asyncio.to_thread(delete_expired)
+            if deleted:
+                logging.info("Удалено истёкших ключей: %s", deleted)
+        except Exception:
+            logging.exception("Ошибка очистки истёкших ключей")
+        await asyncio.sleep(3600)
 
 
 @dp.message(Command("delkey"))
@@ -416,6 +501,8 @@ async def handle_webapp_data(message: Message):
 
 
 async def main():
+    if DATABASE_URL:
+        asyncio.create_task(cleanup_expired_loop())
     await dp.start_polling(bot)
 
 
