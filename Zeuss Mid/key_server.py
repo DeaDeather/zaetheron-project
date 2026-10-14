@@ -23,6 +23,7 @@ from urllib.parse import parse_qsl
 import psycopg2
 import psycopg2.extras
 import requests
+import keyvault
 from contextlib import closing
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, Response
@@ -35,6 +36,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs7
 
 DATABASE_URL  = os.environ["DATABASE_URL"]
+if not os.environ.get("KEY_SECRET"):
+    raise SystemExit("Не задана KEY_SECRET (должна быть такой же, как у бота)")
 ADMIN_TOKEN   = os.environ.get("ZEUS_ADMIN_TOKEN", "change-me-now")
 DOWNLOAD_URL  = os.environ.get(
     "DOWNLOAD_URL",
@@ -249,6 +252,7 @@ def init_db():
                 )
             """)
             cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS telegram_id BIGINT")
+            cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS key_enc TEXT")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS request_cooldowns (
                     user_id BIGINT NOT NULL,
@@ -316,7 +320,12 @@ class ReportReq(BaseModel):
 
 
 def _norm(key: str) -> str:
-    return key.strip().upper()
+    return keyvault.normalize(key)
+
+
+def _kh(key: str) -> str:
+    """В колонке keys.key лежит HMAC-хэш ключа (так пишет bot.py), а не сам ключ."""
+    return keyvault.lookup_hash(key)
 
 
 def _row_status(row, hwid):
@@ -331,12 +340,33 @@ def _row_status(row, hwid):
     return True, "ok"
 
 
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+_LIC_PRIV = Ed25519PrivateKey.from_private_bytes(base64.b64decode(os.environ["LICENSE_PRIV_B64"]))
+LICENSE_GRACE_SECONDS = 3 * 86400
+
+
+def _b64u(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+
+def _issue_token(key: str, hwid: str, expires_at) -> str:
+    now = int(time.time())
+    grace_until = now + LICENSE_GRACE_SECONDS
+    if expires_at:
+        grace_until = min(grace_until, int(expires_at))
+    payload = json.dumps({"key": key, "hwid": hwid, "grace_until": grace_until},
+                         separators=(",", ":")).encode("utf-8")
+    return _b64u(payload) + "." + _b64u(_LIC_PRIV.sign(payload))
+
+
 @app.post("/activate")
 def activate(req: ActivateReq):
     key = _norm(req.key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
             row = cur.fetchone()
             if row is None:
                 raise HTTPException(404, "Ключ не найден")
@@ -346,17 +376,17 @@ def activate(req: ActivateReq):
                 raise HTTPException(403, "Срок действия ключа истёк")
 
             if row["hwid"] == req.hwid:
-                return {"ok": True, "status": "already_active"}
+                return {"ok": True, "status": "already_active", "token": _issue_token(key, req.hwid, row["expires_at"])}
 
             if row["hwid"] is None:
                 if row["activations"] >= row["max_activations"]:
                     raise HTTPException(403, "Превышен лимит активаций")
                 cur.execute(
                     "UPDATE keys SET hwid = %s, activations = activations + 1 WHERE key = %s",
-                    (req.hwid, key),
+                    (req.hwid, _kh(key)),
                 )
                 conn.commit()
-                return {"ok": True, "status": "activated"}
+                return {"ok": True, "status": "activated", "token": _issue_token(key, req.hwid, row["expires_at"])}
 
             raise HTTPException(409, "Ключ уже активирован на другом устройстве")
 
@@ -366,7 +396,7 @@ def validate(req: ValidateReq):
     key = _norm(req.key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
             row = cur.fetchone()
             ok, reason = _row_status(row, req.hwid)
             if not ok:
@@ -382,7 +412,7 @@ def deactivate(req: DeactivateReq):
     with closing(db()) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE keys SET hwid = NULL, activations = 0 WHERE key = %s", (key,))
+                "UPDATE keys SET hwid = NULL, activations = 0 WHERE key = %s", (_kh(key),))
             conn.commit()
             if cur.rowcount == 0:
                 raise HTTPException(404, "Ключ не найден")
@@ -475,7 +505,7 @@ def check(req: CheckReq):
     key = _norm(req.key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
             row = cur.fetchone()
             if row is None:
                 raise HTTPException(404, "not_found")
@@ -497,7 +527,7 @@ def optimize_mobileconfig(key: str):
     key = _norm(key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
             row = cur.fetchone()
             if row is None or not row["active"]:
                 raise HTTPException(403, "invalid_key")
@@ -518,7 +548,7 @@ def basic_mobileconfig(key: str):
     key = _norm(key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keys WHERE key = %s", (key,))
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
             row = cur.fetchone()
             if row is None or not row["active"]:
                 raise HTTPException(403, "invalid_key")
@@ -541,7 +571,7 @@ def reset_hwid(req: ResetHwidReq):
     key = _norm(req.key)
     with closing(db()) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT resets_left FROM keys WHERE key = %s FOR UPDATE", (key,))
+            cur.execute("SELECT resets_left FROM keys WHERE key = %s FOR UPDATE", (_kh(key),))
             row = cur.fetchone()
             if row is None:
                 raise HTTPException(404, "Ключ не найден")
@@ -549,7 +579,7 @@ def reset_hwid(req: ResetHwidReq):
                 raise HTTPException(403, "Сбросы привязки для этого ключа закончились")
             cur.execute(
                 "UPDATE keys SET hwid = NULL, activations = 0, resets_left = resets_left - 1 WHERE key = %s",
-                (key,),
+                (_kh(key),),
             )
             conn.commit()
         return {"ok": True, "resets_left": row["resets_left"] - 1}
