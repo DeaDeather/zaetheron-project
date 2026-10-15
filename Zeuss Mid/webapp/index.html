@@ -1,953 +1,488 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Zaetheron Industry</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fb">
+<title>Zaetheron</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="manifest" href="/manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Zaetheron">
-<link rel="apple-touch-icon" href="/static/icon-180.png">
 <style>
-  :root{
-    --bg-deep:#060b1a;
-    --bg-nebula-a:#0d1a3d;
-    --bg-nebula-b:#0a2a3a;
-    --tiffany:#5fe4d3;
-    --tiffany-dim:#3aa89b;
-    --blue:#5b8cff;
-    --text-primary:#eaf6ff;
-    --text-muted:#8ea1c2;
-    --card:rgba(14,26,54,0.55);
-    --card-border:rgba(95,228,211,0.16);
-    --danger:#ff7a8a;
-    --ok:#6ee6a8;
-  }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--bg-deep);
-    color:var(--text-primary);
-    font-family:'Inter', sans-serif;
-    overflow-x:hidden;
-    min-height:100vh;
-  }
-  canvas#sky{
-    position:fixed; inset:0; width:100%; height:100%; z-index:0;
-  }
-  .nebula{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-    background:
-      radial-gradient(ellipse 60% 40% at 20% 15%, rgba(95,228,211,0.16), transparent 60%),
-      radial-gradient(ellipse 50% 35% at 85% 25%, rgba(91,140,255,0.14), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(10,42,58,0.6), transparent 70%);
-  }
-  main{
-    position:relative; z-index:1;
-    max-width:480px; margin:0 auto;
-    padding:28px 18px 40px;
-    min-height:100vh;
-  }
-  header{ text-align:center; margin-bottom:22px; }
-  .eyebrow{
-    font-family:'JetBrains Mono', monospace;
-    font-size:11px; letter-spacing:0.3em; text-transform:uppercase;
-    color:var(--tiffany); opacity:0.85; margin:0 0 10px;
-  }
-  h1{
-    font-family:'Space Grotesk', sans-serif;
-    font-weight:700; font-size:26px; letter-spacing:-0.01em;
-    margin:0 0 8px;
-    background:linear-gradient(135deg,#f4fffd 10%, var(--tiffany) 55%, var(--blue) 100%);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-  }
-  .tagline{ color:var(--text-muted); font-size:14px; margin:0; line-height:1.5; }
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --text:#1d1d1f; --mute:#6e6e73; --faint:#a1a1a6;
+  --blue:#0071e3; --blue2:#2997ff; --sky:#e8f2ff; --sep:rgba(60,60,67,.12);
+  --ok:#1fa85a; --err:#e5484d;
+  --shadow:0 1px 2px rgba(16,40,90,.04),0 8px 28px rgba(16,40,90,.06);
+  --spring:cubic-bezier(.32,1.28,.5,1);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root{--logo:url("data:image/png;base64,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")}
+.glyph{display:block;background:#fff;-webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;justify-content:center}
+.app{position:relative;width:100%;max-width:480px;height:100%;display:flex;flex-direction:column;overflow:hidden}
 
-  .segment{
-    display:flex; gap:6px; margin:24px 0 18px;
-    background:rgba(255,255,255,0.04); border:1px solid var(--card-border);
-    border-radius:14px; padding:4px;
-  }
-  .segment button{
-    flex:1; padding:10px 8px; border:none; border-radius:10px;
-    background:transparent; color:var(--text-muted);
-    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:14px;
-    cursor:pointer; transition:all .25s ease;
-  }
-  .segment button.active{
-    background:linear-gradient(135deg, rgba(95,228,211,0.18), rgba(91,140,255,0.18));
-    color:var(--text-primary);
-    box-shadow:inset 0 0 0 1px var(--card-border);
-  }
+/* ambient light */
+.ambient{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.ambient i{position:absolute;border-radius:50%;filter:blur(80px);will-change:transform}
+.ambient .a{width:340px;height:340px;top:-170px;right:-110px;background:#bcdcff;opacity:.75;animation:drift 18s ease-in-out infinite}
+.ambient .b{width:280px;height:280px;top:120px;left:-150px;background:#d8e9ff;opacity:.8;animation:drift 22s ease-in-out infinite reverse}
+@keyframes drift{50%{transform:translate(-30px,40px) scale(1.08)}}
 
-  .view{ display:none; animation:fadeIn .35s ease; }
-  .view.active{ display:block; }
-  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+/* top bar */
+.top{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 4px}
+.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(160deg,var(--blue2),var(--blue));display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,113,227,.35)}
+.mark .glyph{width:16px;height:16px}
+.status{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--mute);padding:6px 11px;border-radius:99px;background:rgba(255,255,255,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 0 0 .5px var(--sep);transition:.4s}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--faint);transition:.4s}
+.status.on{color:var(--ok)}
+.status.on i{background:var(--ok)}
 
-  .plan{
-    display:flex; align-items:center; justify-content:space-between;
-    background:var(--card); border:1px solid var(--card-border);
-    border-radius:16px; padding:16px 18px; margin-bottom:12px;
-    backdrop-filter:blur(6px);
-  }
-  .plan .info .dur{
-    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:16px;
-  }
-  .plan .info .desc{ color:var(--text-muted); font-size:12.5px; margin-top:2px; }
-  .plan .price{
-    font-family:'JetBrains Mono', monospace; font-weight:600; font-size:16px;
-    color:var(--tiffany); white-space:nowrap; margin-right:12px;
-  }
-  .plan.featured{
-    border-color:rgba(95,228,211,0.45);
-    box-shadow:0 0 0 1px rgba(95,228,211,0.2), 0 8px 30px -12px rgba(95,228,211,0.35);
-  }
-  .plan.featured .info .dur::after{
-    content:'НАВСЕГДА'; display:block; font-family:'JetBrains Mono', monospace;
-    font-size:9px; letter-spacing:0.15em; color:var(--tiffany); margin-top:3px;
-  }
-  .buy-btn{
-    border:none; border-radius:11px; padding:10px 16px;
-    background:linear-gradient(135deg, var(--tiffany), var(--blue));
-    color:#04121a; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13px;
-    cursor:pointer;
-  }
-  .buy-btn:active{ transform:scale(0.96); }
+/* views */
+main{position:relative;z-index:2;flex:1;overflow-y:auto;padding:6px 20px calc(env(safe-area-inset-bottom,0px) + 110px);scrollbar-width:none}
+main::-webkit-scrollbar{display:none}
+.view{display:none}
+.view.active{display:block;animation:viewIn .5s var(--ease) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.view.active .stagger{animation:viewIn .6s var(--ease) both}
+.view.active .stagger:nth-child(2){animation-delay:.05s}
+.view.active .stagger:nth-child(3){animation-delay:.1s}
+.view.active .stagger:nth-child(4){animation-delay:.15s}
+.view.active .stagger:nth-child(5){animation-delay:.2s}
+.view.active .stagger:nth-child(6){animation-delay:.25s}
 
-  .card{
-    background:var(--card); border:1px solid var(--card-border);
-    border-radius:18px; padding:22px 20px; backdrop-filter:blur(6px);
-  }
-  .card label{
-    display:block; font-family:'JetBrains Mono', monospace; font-size:11px;
-    letter-spacing:0.15em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;
-  }
-  .key-input{
-    width:100%; padding:14px 14px; border-radius:12px;
-    background:rgba(0,0,0,0.35); border:1px solid var(--card-border);
-    color:var(--text-primary); font-family:'JetBrains Mono', monospace;
-    font-size:15px; letter-spacing:0.03em; outline:none; text-transform:uppercase;
-  }
-  .key-input:focus{ border-color:var(--tiffany); }
-  .check-btn{
-    width:100%; margin-top:12px; padding:13px; border:none; border-radius:12px;
-    background:linear-gradient(135deg, var(--tiffany), var(--blue));
-    color:#04121a; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px;
-    cursor:pointer;
-  }
-  .check-btn:disabled{ opacity:0.5; }
-  .status{
-    margin-top:14px; font-size:13px; line-height:1.5; min-height:18px;
-  }
-  .status.err{ color:var(--danger); }
-  .status.ok{ color:var(--ok); }
-  .download-btn{
-    display:block; text-align:center; text-decoration:none;
-    margin-top:14px; padding:13px; border-radius:12px;
-    background:rgba(110,230,168,0.12); border:1px solid rgba(110,230,168,0.4);
-    color:var(--ok); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px;
-  }
+.title{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:14px 2px 6px}
+.lead{font-size:16px;line-height:1.4;color:var(--mute);margin:0 2px 18px;letter-spacing:-.01em}
+.cap{font-size:13px;color:var(--mute);margin:0 16px 8px;letter-spacing:-.005em}
+.foot{font-size:13px;color:var(--mute);margin:8px 16px 22px;line-height:1.4}
 
-  .profile-card{ margin-bottom:0; }
-  .profile-head{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }
-  .avatar{
-    width:52px; height:52px; border-radius:50%; overflow:hidden; flex-shrink:0;
-    background:linear-gradient(135deg, rgba(95,228,211,0.35), rgba(91,140,255,0.35));
-    display:flex; align-items:center; justify-content:center;
-    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:19px;
-    border:1px solid var(--card-border);
-  }
-  .avatar img{ width:100%; height:100%; object-fit:cover; }
-  .profile-name{ font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:16px; }
-  .profile-handle{ color:var(--text-muted); font-size:12.5px; margin-top:2px; }
-  .row{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:9px 0; border-top:1px solid rgba(255,255,255,0.06);
-    font-size:13.5px; gap:10px;
-  }
-  .row:first-of-type{ border-top:none; }
-  .row .mono{ font-family:'JetBrains Mono', monospace; font-size:12.5px; color:var(--text-primary); text-align:right; }
-  .muted-text{ color:var(--text-muted); font-size:13.5px; margin:2px 0 14px; line-height:1.5; }
-  .danger-btn{
-    margin-top:16px; background:rgba(255,122,138,0.12);
-    border:1px solid rgba(255,122,138,0.4); color:var(--danger);
-  }
-  .link-btn{
-    display:block; width:100%; margin-top:10px; padding:8px; background:none; border:none;
-    color:var(--text-muted); font-family:'Inter', sans-serif; font-size:12.5px;
-    text-decoration:underline; cursor:pointer;
-  }
-  .badge-ok{ color:var(--ok); } .badge-err{ color:var(--danger); }
+/* segmented control */
+.seg{position:relative;display:flex;padding:3px;border-radius:13px;background:rgba(118,130,160,.16);margin-bottom:12px}
+.seg .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:10px;background:#fff;
+  box-shadow:0 2px 8px rgba(16,40,90,.14),0 0 0 .5px rgba(16,40,90,.04);transition:transform .45s var(--spring)}
+.seg button{position:relative;z-index:1;flex:1;border:0;background:none;padding:9px 0;font:600 14.5px/1.2 inherit;letter-spacing:-.01em;color:var(--mute);cursor:pointer;transition:color .3s}
+.seg button.active{color:var(--text)}
+.blurb{font-size:14px;color:var(--mute);margin:0 4px 18px;line-height:1.4;min-height:20px;transition:opacity .3s}
 
-  footer{
-    text-align:center; margin-top:26px; font-size:11.5px; color:var(--text-muted);
-    font-family:'JetBrains Mono', monospace; letter-spacing:0.04em;
-  }
-  .disclaimer{
-    text-align:center; margin-top:14px; font-size:10.5px; line-height:1.6;
-    color:var(--text-muted); opacity:0.75; padding:0 6px;
-  }
-  .opt-section{ margin-bottom:16px; }
-  .opt-section h3{
-    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:15px;
-    margin:0 0 10px; color:var(--tiffany);
-  }
-  .opt-list{ margin:0; padding-left:18px; font-size:13px; line-height:1.7; color:var(--text-primary); }
-  .opt-list li{ margin-bottom:4px; }
-  .dns-row{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:8px 0; border-top:1px solid rgba(255,255,255,0.06); font-size:13px;
-  }
-  .dns-row:first-child{ border-top:none; }
-  .dns-name{ font-weight:600; }
-  .dns-addr{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--tiffany); text-align:right; }
-  .country-pill{
-    display:inline-block; background:rgba(95,228,211,0.12); border:1px solid var(--card-border);
-    border-radius:20px; padding:5px 14px; font-family:'JetBrains Mono', monospace;
-    font-size:12.5px; margin-bottom:14px;
-  }
-  .report-box{ margin-top:14px; }
-  .report-textarea{
-    width:100%; min-height:70px; padding:12px; border-radius:12px; resize:vertical;
-    background:rgba(0,0,0,0.35); border:1px solid var(--card-border);
-    color:var(--text-primary); font-family:'Inter', sans-serif; font-size:13.5px; outline:none;
-  }
-  .report-textarea:focus{ border-color:var(--tiffany); }
+/* license pass */
+.pass{position:relative;border-radius:26px;padding:22px 22px 20px;margin-bottom:22px;color:#fff;overflow:hidden;
+  background:linear-gradient(150deg,#3aa0ff 0%,#0a6cf0 55%,#0757c7 100%);
+  box-shadow:0 18px 40px -12px rgba(0,113,227,.55),0 2px 6px rgba(0,113,227,.25);
+  transition:filter .6s,background .6s}
+.pass::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.38),transparent 55%);pointer-events:none}
+.pass::after{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-18deg);animation:sheen 6s ease-in-out infinite}
+@keyframes sheen{55%,100%{left:140%}}
+.pass.off{background:linear-gradient(150deg,#c9d3e3,#a9b6cc 60%,#94a3bd);box-shadow:0 14px 30px -14px rgba(60,80,120,.45)}
+.pass-top{display:flex;justify-content:space-between;align-items:center;position:relative}
+.pass-brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.pass-brand .glyph{width:18px;height:18px}
+.pass-tier{font-size:11.5px;font-weight:600;letter-spacing:.04em;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.22);backdrop-filter:blur(8px)}
+.pass-big{position:relative;margin:30px 0 22px;font-size:28px;font-weight:700;letter-spacing:-.03em}
+.pass-bot{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pass-bot>div{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.pass-bot small{display:block;font-size:11px;opacity:.8;margin-bottom:3px;letter-spacing:.02em}
+.pass-bot b{font-size:15px;font-weight:600;letter-spacing:-.01em}
 
-  .private-mark{
-    text-align:center; margin-top:10px; font-size:10px; letter-spacing:0.25em;
-    color:var(--text-muted); opacity:0.5; font-family:'JetBrains Mono', monospace;
-  }
-  .modal-overlay{
-    position:fixed; inset:0; z-index:50;
-    background:rgba(2,6,18,0.72); backdrop-filter:blur(3px);
-    display:flex; align-items:center; justify-content:center; padding:20px;
-  }
-  .modal-box{
-    background:var(--bg-deep); border:1px solid var(--card-border); border-radius:18px;
-    padding:22px 20px; max-width:420px; width:100%;
-    box-shadow:0 20px 60px -20px rgba(0,0,0,0.7);
-  }
+/* identity row */
+.me{display:flex;align-items:center;gap:14px;margin:0 2px 22px}
+.ava{width:56px;height:56px;border-radius:50%;background:var(--sky) center/cover;display:grid;place-items:center;font-size:22px;font-weight:600;color:var(--blue);box-shadow:0 0 0 3px #fff,0 4px 14px rgba(16,40,90,.1);flex:none}
+.me b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em}
+.me span{font-size:14px;color:var(--mute)}
 
-  .flying-title{
-    position:fixed; top:14%; left:-45%;
-    z-index:0; pointer-events:none;
-    font-family:'Space Grotesk', sans-serif; font-weight:700;
-    font-size:34px; letter-spacing:0.3em; white-space:nowrap;
-    background:linear-gradient(90deg, rgba(234,246,255,0.95), var(--tiffany) 45%, var(--blue) 100%);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    filter:drop-shadow(0 0 8px rgba(95,228,211,0.75)) drop-shadow(0 0 18px rgba(91,140,255,0.5));
-    opacity:0;
-  }
-  .flying-title.fly{ animation:flyAcross 9s linear forwards; }
-  @keyframes flyAcross{
-    0%{ left:-45%; opacity:0; }
-    8%{ opacity:1; }
-    50%{ opacity:1; }
-    92%{ opacity:1; }
-    100%{ left:115%; opacity:0; }
-  }
+/* grouped list */
+.group{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:8px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;position:relative;font-size:16px;letter-spacing:-.01em}
+.item+.item::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.item span{color:var(--text)}
+.item b{font-weight:400;color:var(--mute);font-size:15.5px}
+.item b.hi{color:var(--blue);font-weight:500}
+
+/* buttons */
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;font:600 17px/1.2 inherit;letter-spacing:-.01em;color:#fff;cursor:pointer;
+  background:linear-gradient(180deg,#1a85f2,#0071e3);box-shadow:0 8px 20px -8px rgba(0,113,227,.7);
+  transition:transform .35s var(--spring),opacity .25s,box-shadow .3s}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn.soft{background:var(--sky);color:var(--blue);box-shadow:none}
+.btn[disabled]{background:#dfe5ee;color:#9aa5b8;box-shadow:none;pointer-events:none}
+
+/* key field */
+.field{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:6px;margin-bottom:14px;transition:box-shadow .3s}
+.field:focus-within{box-shadow:0 0 0 3px rgba(0,113,227,.28),var(--shadow)}
+.field input{width:100%;border:0;outline:0;background:transparent;text-align:center;text-transform:uppercase;color:var(--text);
+  font:500 21px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.14em;padding:20px 10px}
+.field input::placeholder{color:#c4cad6}
+.field.err{animation:shake .4s;box-shadow:0 0 0 3px rgba(229,72,77,.25)}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
+/* plans */
+.plan{cursor:pointer;transition:background .2s}
+.plan:active{background:#f4f7fc}
+.plan .l{display:flex;flex-direction:column;gap:2px}
+.plan .l small{font-size:13.5px;color:var(--mute)}
+.plan .r{display:flex;align-items:center;gap:12px}
+.plan .price{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.radio{width:22px;height:22px;border-radius:50%;border:1.5px solid #c7cdd8;display:grid;place-items:center;transition:.3s var(--spring);flex:none}
+.radio svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transform:scale(0);transition:.3s var(--spring)}
+.plan.sel .radio{background:var(--blue);border-color:var(--blue)}
+.plan.sel .radio svg{transform:scale(1)}
+.badge{font-size:11px;font-weight:600;color:var(--blue);background:var(--sky);padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:2px;font-style:normal}
+#plans.swap{animation:swap .45s var(--ease)}
+@keyframes swap{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* download */
+.hero{text-align:center;padding:6px 0 22px}
+.app-ico{width:104px;height:104px;border-radius:27px;margin:0 auto 18px;display:grid;place-items:center;
+  background:linear-gradient(160deg,#4db0ff,#0a6cf0 65%,#0757c7);
+  box-shadow:0 20px 36px -12px rgba(0,113,227,.55),inset 0 1px 0 rgba(255,255,255,.4);animation:float 5s ease-in-out infinite}
+.app-ico svg{width:46px;height:46px;transition:opacity .25s}
+.app-ico .glyph{width:52px;height:52px}
+@keyframes float{50%{transform:translateY(-5px)}}
+.hero h3{font-size:24px;font-weight:700;letter-spacing:-.03em}
+.hero p{font-size:14.5px;color:var(--mute);margin-top:4px}
+.note{display:flex;align-items:center;gap:8px;justify-content:center;margin:14px 0 18px;font-size:14px;color:var(--mute);transition:.4s}
+.note svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.note.ok{color:var(--ok)}
+.prog{height:6px;border-radius:9px;background:#e3e9f3;overflow:hidden;margin:0 0 14px;display:none}
+.prog i{display:block;height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,var(--blue2),var(--blue));transition:width .2s linear}
+
+/* tab bar */
+nav{position:absolute;z-index:6;left:0;right:0;bottom:0;display:flex;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);
+  background:rgba(250,252,255,.78);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:.5px solid var(--sep)}
+nav button{flex:1;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 2px;
+  font:500 10.5px/1 inherit;color:#8e98ab;cursor:pointer;transition:color .3s}
+nav button svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .4s var(--spring)}
+nav button.active{color:var(--blue)}
+nav button.active svg{transform:scale(1.1)}
+
+/* toast */
+#toast{position:absolute;z-index:20;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translate(-50%,-90px);
+  padding:12px 20px;border-radius:99px;font-size:14.5px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;
+  background:rgba(255,255,255,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 10px 30px rgba(16,40,90,.16),0 0 0 .5px var(--sep);transition:transform .6s var(--spring)}
+#toast.show{transform:translate(-50%,0)}
+#toast.err{color:var(--err)}
+
+/* success sheet */
+.sheet{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(245,247,251,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);opacity:0;pointer-events:none;transition:opacity .35s}
+.sheet.show{opacity:1}
+.sheet .box{text-align:center;transform:scale(.9);transition:transform .6s var(--spring)}
+.sheet.show .box{transform:none}
+.sheet svg{width:92px;height:92px}
+.sheet circle{fill:none;stroke:var(--blue);stroke-width:3;stroke-dasharray:200;stroke-dashoffset:200}
+.sheet path{fill:none;stroke:var(--blue);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:60;stroke-dashoffset:60}
+.sheet.show circle{animation:draw .7s .1s var(--ease) forwards}
+.sheet.show path{animation:draw .45s .6s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.sheet b{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:14px}
+.sheet span{font-size:15px;color:var(--mute)}
 </style>
 </head>
 <body>
-<canvas id="sky"></canvas>
-<div class="nebula"></div>
-<div id="flyingTitle" class="flying-title">Z A E T H E R O N</div>
+<div class="app">
+  <div class="ambient"><i class="a"></i><i class="b"></i></div>
 
-<main>
-  <header>
-    <p class="eyebrow">License Portal</p>
-    <h1>Zaetheron Industry</h1>
-    <p class="tagline">Доступ по ключу. Один ключ — одно устройство. Сброс привязки доступен вручную.</p>
-  </header>
-
-  <div class="segment">
-    <button id="tab-buy" class="active">Тарифы</button>
-    <button id="tab-key">Ключ</button>
-    <button id="tab-profile">Профиль</button>
-    <button id="tab-optimize" style="display:none">Оптимизация</button>
+  <div class="top">
+    <div class="brand">
+      <div class="mark"><i class="glyph"></i></div>
+      Zaetheron
+    </div>
+    <div class="status" id="status"><i></i><span id="statusTxt">Нет лицензии</span></div>
   </div>
 
-  <section id="view-buy" class="view active">
-    <div class="plan" data-plan="7d" data-label="7 дней" data-price="1000">
-      <div class="info"><div class="dur">7 дней</div><div class="desc">Пробный доступ</div></div>
-      <div class="price">1000₽</div>
-      <button class="buy-btn">Купить</button>
-    </div>
-    <div class="plan" data-plan="30d" data-label="30 дней" data-price="2500">
-      <div class="info"><div class="dur">30 дней</div><div class="desc">Полный месяц</div></div>
-      <div class="price">2500₽</div>
-      <button class="buy-btn">Купить</button>
-    </div>
-    <div class="plan" data-plan="90d" data-label="90 дней" data-price="3500">
-      <div class="info"><div class="dur">90 дней</div><div class="desc">Три месяца</div></div>
-      <div class="price">3500₽</div>
-      <button class="buy-btn">Купить</button>
-    </div>
-    <div class="plan featured" data-plan="lifetime" data-label="Навсегда" data-price="4999">
-      <div class="info"><div class="dur">Lifetime</div></div>
-      <div class="price">4999₽</div>
-      <button class="buy-btn">Купить</button>
-    </div>
-  </section>
+  <main>
+    <!-- PROFILE -->
+    <section class="view active" id="v-profile">
+      <div class="me stagger">
+        <div class="ava" id="avatar">Z</div>
+        <div><b id="uName">Гость</b><span id="uTag">@username</span></div>
+      </div>
 
-  <section id="view-key" class="view">
-    <div class="card">
-      <label>Ключ доступа</label>
-      <input id="keyInput" class="key-input" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" maxlength="23" autocomplete="off" autocapitalize="characters" />
-      <button id="checkBtn" class="check-btn">Проверить и скачать</button>
-      <div id="status" class="status"></div>
-      <a id="downloadLink" class="download-btn" style="display:none" href="#">Скачать клиент</a>
-    </div>
-  </section>
-
-  <section id="view-profile" class="view">
-    <div class="card profile-card">
-      <div class="profile-head">
-        <div id="avatar" class="avatar">?</div>
-        <div class="profile-id">
-          <div id="profileName" class="profile-name">—</div>
-          <div id="profileHandle" class="profile-handle">—</div>
+      <div class="pass off stagger" id="pass">
+        <div class="pass-top">
+          <div class="pass-brand"><i class="glyph"></i>Zaetheron</div>
+          <div class="pass-tier" id="passTier">Free</div>
+        </div>
+        <div class="pass-big" id="passBig">Нет лицензии</div>
+        <div class="pass-bot">
+          <div><small>Приложение</small><b id="pApp">—</b></div>
+          <div><small>Custom OS</small><b id="pOs">—</b></div>
         </div>
       </div>
-      <div class="row"><span>Telegram ID</span><span id="profileTgId" class="mono">—</span></div>
-    </div>
 
-    <div id="licenseCard" class="card profile-card" style="margin-top:14px;">
-      <label>Мой ключ</label>
-      <div id="licenseEmpty">
-        <p class="muted-text">Ключ ещё не привязан к профилю.</p>
-        <button id="goToKeyTab" class="check-btn">Ввести ключ</button>
+      <div class="cap stagger">Аккаунт</div>
+      <div class="group stagger">
+        <div class="item"><span>Telegram ID</span><b id="uId">—</b></div>
+        <div class="item"><span>Приложение</span><b id="uApp">Не активно</b></div>
+        <div class="item"><span>Custom OS</span><b id="uOs">Не активно</b></div>
+        <div class="item"><span>Загрузки</span><b id="sDl">0</b></div>
       </div>
-      <div id="licenseFilled" style="display:none">
-        <div class="row"><span>Ключ</span><span id="lKey" class="mono">—</span></div>
-        <div class="row"><span>Статус</span><span id="lStatus">—</span></div>
-        <div class="row"><span>Действует до</span><span id="lExpires" class="mono">—</span></div>
-        <div class="row"><span>Устройство</span><span id="lHwid">—</span></div>
-        <a id="profileDownloadLink" class="download-btn" style="display:none" href="#">Скачать клиент</a>
-        <button id="forgetKeyBtn" class="link-btn">Убрать ключ из профиля</button>
-        <div id="profileStatus" class="status"></div>
+      <div style="margin-top:18px" class="stagger"><button class="btn" data-go="key">Активировать ключ</button></div>
+    </section>
+
+    <!-- KEY -->
+    <section class="view" id="v-key">
+      <h1 class="title stagger">Активация</h1>
+      <p class="lead stagger">Введите ключ, который бот отправил после оплаты. Продукт определится автоматически.</p>
+      <div class="field stagger" id="field"><input id="keyInput" maxlength="18" value="ZTH-" placeholder="ZTH-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+      <div class="stagger"><button class="btn" id="btnActivate">Активировать</button></div>
+      <p class="foot stagger" style="text-align:center;margin-top:18px">Нет ключа? Выберите продукт и тариф в магазине — ключ придёт в чат с ботом.</p>
+      <div class="stagger"><button class="btn soft" data-go="shop">Открыть магазин</button></div>
+    </section>
+
+    <!-- SHOP -->
+    <section class="view" id="v-shop">
+      <h1 class="title stagger">Магазин</h1>
+      <p class="lead stagger" style="margin-bottom:14px">Выберите продукт и срок доступа.</p>
+      <div class="stagger">
+        <div class="seg" data-seg><i class="thumb"></i><button data-p="app">Приложение</button><button data-p="os">Custom OS</button></div>
+        <p class="blurb" id="blurb"></p>
       </div>
-    </div>
+      <div class="group stagger" id="plans"></div>
+      <p class="foot stagger">Оплата проходит через бота. Лицензия привязывается к вашему Telegram-аккаунту.</p>
+      <div class="stagger"><button class="btn" id="btnBuy">Купить</button></div>
+    </section>
 
-    <div class="card report-box">
-      <label>Сообщить о проблеме</label>
-      <textarea id="reportText" class="report-textarea" placeholder="Опишите проблему…"></textarea>
-      <button id="reportBtn" class="check-btn" style="margin-top:10px;">Отправить репорт</button>
-      <div id="reportStatus" class="status"></div>
-    </div>
-  </section>
+    <!-- DOWNLOAD -->
+    <section class="view" id="v-dl">
+      <div class="stagger" style="margin-top:12px"><div class="seg" data-seg><i class="thumb"></i><button data-p="app">Приложение</button><button data-p="os">Custom OS</button></div></div>
+      <div class="hero stagger">
+        <div class="app-ico"><i id="dlGlyph" class="glyph"></i><svg id="dlIco" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></svg></div>
+        <h3 id="dlTitle">Zaetheron для Windows</h3>
+        <p id="dlVer">Версия 1.0.0 · 64-bit</p>
+      </div>
+      <div class="note stagger" id="note">
+        <svg viewBox="0 0 24 24" id="noteIco"></svg>
+        <span id="noteTxt">Для загрузки нужен активный ключ</span>
+      </div>
+      <div class="prog stagger" id="prog"><i id="progI"></i></div>
+      <div class="stagger"><button class="btn" id="btnDl" disabled>Скачать</button></div>
+      <div class="cap stagger" style="margin-top:26px">Требования</div>
+      <div class="group stagger" id="reqs"></div>
+    </section>
+  </main>
 
-  <section id="view-optimize" class="view">
-    <div class="card opt-section">
-      <h3>Приложение</h3>
-      <p class="muted-text" style="margin-top:0;">Установи Zaetheron на экран Домой — будет открываться как обычное приложение, без Telegram и адресной строки.</p>
-      <button id="installAppBtn" class="check-btn">Скачать приложение</button>
-    </div>
+  <nav>
+    <button class="active" data-go="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/></svg>Профиль</button>
+    <button data-go="key"><svg viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="4"/><path d="M11 12.5 20 3.5M16 7.5l3 3M14 9.5l2 2"/></svg>Ключ</button>
+    <button data-go="shop"><svg viewBox="0 0 24 24"><path d="M5.5 8h13l-1.2 11.5h-10.6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Магазин</button>
+    <button data-go="dl"><svg viewBox="0 0 24 24"><path d="M12 3.5v11.5M7.5 11 12 15.5 16.5 11M4.5 20h15"/></svg>Загрузка</button>
+  </nav>
 
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>Ваш регион</h3>
-      <div id="countryPill" class="country-pill">определяем…</div>
-      <p class="muted-text" style="margin-top:0;">
-        Профиль ниже — не VPN: трафик никуда не туннелируется, меняется только то, какой сервер
-        отвечает на DNS-запросы (системно, на Wi-Fi и сотовой сети сразу).
-      </p>
-      <button id="optimizeBtn" class="check-btn">Оптимизировать</button>
-    </div>
-
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>DNS (Zaetheron · Quad9 over TLS)</h3>
-      <div class="dns-row"><span class="dns-name">dns.quad9.net</span><span class="dns-addr">9.9.9.9 / 149.112.112.112<br>2620:fe::fe / 2620:fe::9</span></div>
-      <p class="muted-text">Эти адреса зашиты в профиль «Оптимизировать» выше — вручную вводить не обязательно.</p>
-    </div>
-
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>Как настроить DNS вручную</h3>
-      <ol class="opt-list">
-        <li>Wi-Fi: Настройки → Wi-Fi → значок (i) у вашей сети → «Настроить DNS» → «Вручную» → удалить старые адреса и добавить нужные.</li>
-        <li>Сотовая сеть + Wi-Fi сразу: кнопка «Оптимизировать» выше — устанавливает системный профиль DNS, покрывает оба типа подключения одним действием.</li>
-        <li>После смены DNS перезапустите Wi-Fi (выключить/включить) или перезагрузите телефон.</li>
-      </ol>
-    </div>
-
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>Общая оптимизация устройства</h3>
-      <ul class="opt-list">
-        <li>Настройки → Основные → Обновление ПО — держите iOS актуальной.</li>
-        <li>Настройки → Основные → Хранилище iPhone — раз в месяц чистить неиспользуемое; после 80% заполнения система начинает подтормаживать при записи.</li>
-        <li>Настройки → Основные → Фоновое обновление приложений — отключить для всех приложений, кроме мессенджеров.</li>
-        <li>Перезагружайте телефон каждые несколько дней — сбрасывает утечки памяти в фоновых процессах.</li>
-        <li>Настройки → Батарея → «Работоспособность аккумулятора» — при сильном износе iOS сама снижает пиковую производительность (throttling), в этом случае поможет только замена батареи.</li>
-        <li>Settings → Основные → AirDrop/Handoff — выключить, если не используете: постоянное фоновое Bluetooth-сканирование грузит систему.</li>
-      </ul>
-    </div>
-
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>Мощный тир — для игр</h3>
-      <ul class="opt-list">
-        <li>Подключайтесь к Wi-Fi в диапазоне 5 ГГц, а не 2.4 ГГц — ниже задержка, меньше помех от соседних сетей.</li>
-        <li>Закрывайте все фоновые приложения перед игрой (смахнуть вверх в App Switcher), особенно с активной синхронизацией (Фото в iCloud, облачные диски).</li>
-        <li>Отключите Bluetooth, если не используете беспроводной контроллер/наушники — освобождает радиомодуль под Wi-Fi/игровые аксессуары.</li>
-        <li>iOS 18+: включите «Игровой режим» (Настройки → Основные, или свайпом активируется автоматически в полноэкранных играх) — приоритизирует CPU/GPU игре и снижает задержку опроса Bluetooth-контроллеров/наушников.</li>
-        <li>Пункт управления → Фокусирование → создайте профиль «Игра»: глушит уведомления не связанных с игрой приложений на время сессии.</li>
-        <li>Ярлыки (Shortcuts) → создайте автоматизацию «При открытии [игра]» → действия «Установить режим энергосбережения: выкл» + «Включить фокусирование Игра» — запускается само при старте игры.</li>
-        <li>Для соревновательных игр — проводные наушники: задержка звука ощутимо ниже, чем у любого Bluetooth-кодека.</li>
-        <li>Не держите телефон в чехле при долгой сессии — перегрев — главная причина троттлинга производительности на iPhone.</li>
-      </ul>
-    </div>
-
-    <div class="card opt-section" style="margin-top:14px;">
-      <h3>Мощный тир — качество картинки</h3>
-      <ul class="opt-list">
-        <li>Настройки → Экран и яркость → True Tone — выключите для точной, некорректируемой цветопередачи в играх и при цветокоррекции контента.</li>
-        <li>Ночной режим (Night Shift) — выключайте на время игр/просмотра, чтобы не искажались цвета.</li>
-        <li>Включайте HDR для видео/контента, где он поддерживается экраном (Настройки → Экран и яркость → Видео в HDR).</li>
-        <li>Настройки → Специальные возможности → Движение → «Уменьшение движения» включено = ниже нагрузка на GPU и стабильнее FPS в тяжёлых играх, выключено = плавнее системная анимация.</li>
-        <li>Настройки → Специальные возможности → Дисплей → «Увеличить контрастность» — полезно для точного восприятия тёмных сцен.</li>
-        <li>Ручная яркость вместо авто — устраняет паразитные скачки экспозиции экрана при съёмке видео с игры.</li>
-      </ul>
-    </div>
-  </section>
-
-  <div id="installModal" class="modal-overlay" style="display:none">
-    <div class="modal-box">
-      <h3 style="margin-top:0;">Установка на экран Домой</h3>
-      <p class="muted-text">1. Нажми значок «Поделиться» внизу экрана Safari.</p>
-      <p class="muted-text">2. Выбери «На экран «Домой».</p>
-      <p class="muted-text">3. Нажми «Добавить» — иконка появится на главном экране и будет открываться как приложение.</p>
-      <button id="installModalCloseBtn" class="link-btn" style="margin-top:4px;">Понятно</button>
-    </div>
-  </div>
-
-  <div id="optimizeModal" class="modal-overlay" style="display:none">
-    <div class="modal-box">
-      <h3 style="margin-top:0;">Установка профиля DNS</h3>
-      <p class="muted-text">
-        Сейчас откроется Safari и скачается конфигурационный профиль iOS (.mobileconfig) с именем
-        «ZAETHERON» и приватными DNS-резолверами. Он не является VPN и не туннелирует трафик —
-        меняется только резолвинг DNS, системно на Wi-Fi и сотовой сети.
-      </p>
-      <p class="muted-text">
-        Установка происходит только через официальный системный экран iOS — приложение ничего не
-        меняет само. После скачивания: Настройки → Профиль загружен → Установить → код-пароль →
-        Установить ещё раз для подтверждения. В любой момент профиль можно удалить: Настройки →
-        Основные → VPN и управление устройством → выбрать профиль → Удалить.
-      </p>
-      <a id="modalDownloadLink" class="download-btn" href="#" style="display:block; margin-top:4px;">Скачать профиль</a>
-      <button id="modalCloseBtn" class="link-btn" style="margin-top:4px;">Отмена</button>
-    </div>
-  </div>
-
-  <footer>zaetheron industry · поддержка через бота</footer>
-  <p class="disclaimer">
-    Используя сервис и загружаемые материалы, вы подтверждаете, что делаете это добровольно и на свой риск.
-    Команда Zaetheron не несёт ответственности за работоспособность, безопасность или любые последствия для вашего
-    персонального компьютера или иного устройства, возникшие в результате использования загруженных материалов —
-    включая возможную потерю данных, сбои в работе ОС/приложений или блокировки со стороны третьих лиц.
-    Рекомендации по оптимизации и сетевым настройкам приведены в справочных целях; вносите изменения в системные
-    настройки самостоятельно и осознанно.
-  </p>
-  <p class="private-mark">ZAETHERON PRIVATE</p>
-</main>
+  <div id="toast"></div>
+  <div class="sheet" id="sheet"><div class="box">
+    <svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="40"/><path d="M28 47l12 12 24-26"/></svg>
+    <b>Лицензия активирована</b><span id="sheetSub">Загрузка доступна</span>
+  </div></div>
+</div>
 
 <script>
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
-
-function openDownload(url) {
-  if (!url || url === '#') return;
-  if (tg && typeof tg.openLink === 'function') {
-    tg.openLink(url, { try_instant_view: false });
-  } else {
-    window.open(url, '_blank');
+/* ================= CONFIG ================= */
+const CONFIG = {
+  api: "/api/verify",      // POST {key, init_data} -> {ok, product, plan, days, expires_at, download_url}
+  buyApi: "/buy",          // POST {product, plan, init_data}: сервер выставляет счёт в чат с ботом
+  plans: [
+    {id:"1d", name:"1 день",  desc:"Попробовать",  days:1},
+    {id:"3d", name:"3 дня",   desc:"Оптимально",   days:3, tag:"Выбор"},
+    {id:"7d", name:"7 дней",  desc:"Максимум",     days:7}
+  ],
+  products: {
+    app: {
+      name:"Приложение", title:"Zaetheron для Windows", ver:"Версия 1.0.0 · 64-bit",
+      blurb:"Утилита для Windows: оптимизация и настройка системы.",
+      prices:{"1d":"399 ₽","3d":"699 ₽","7d":"1 299 ₽"},
+      downloadUrl:"",                                           // FILL: installer link
+      reqs:[["Система","Windows 10 / 11"],["Архитектура","x64"],["Размер","≈ 48 МБ"],["Права","Администратор"]], // FILL
+      icon:'<path d="M5 5h14L5 19h14"/>'
+    },
+    os: {
+      name:"Custom OS", title:"Zaetheron Custom OS", ver:"Версия 1.0.0 · оболочка",
+      blurb:"Игровая оболочка поверх Windows 11: игровое меню, быстрый запуск, буст.",
+      prices:{"1d":"539 ₽","3d":"944 ₽","7d":"1 754 ₽"},       // app price × 1.35, rounded
+      downloadUrl:"",                                           // FILL: installer link
+      reqs:[["Система","Windows 11"],["Архитектура","x64"],["Размер","≈ 120 МБ"],["Права","Администратор"]], // FILL
+      icon:'<rect x="3.5" y="4.5" width="17" height="12" rx="2.5"/><path d="M8.5 20h7M12 16.5V20"/>'
+    }
   }
-}
-
-const tabs = {
-  buy: { btn: document.getElementById('tab-buy'), view: document.getElementById('view-buy') },
-  key: { btn: document.getElementById('tab-key'), view: document.getElementById('view-key') },
-  profile: { btn: document.getElementById('tab-profile'), view: document.getElementById('view-profile') },
-  optimize: { btn: document.getElementById('tab-optimize'), view: document.getElementById('view-optimize') },
 };
-function showTab(name) {
-  Object.entries(tabs).forEach(([k, t]) => {
-    t.btn.classList.toggle('active', k === name);
-    t.view.classList.toggle('active', k === name);
+
+/* ================= TELEGRAM ================= */
+const tg = window.Telegram?.WebApp;
+if (tg){ tg.ready(); tg.expand(); try{tg.setHeaderColor("#f5f7fb");tg.setBackgroundColor("#f5f7fb");tg.setBottomBarColor&&tg.setBottomBarColor("#fafcff");}catch(e){} }
+const user = tg?.initDataUnsafe?.user || {id:0, first_name:"Гость", username:""};
+const haptic = (t="light")=>{ try{tg?.HapticFeedback?.impactOccurred(t)}catch(e){} };
+const notif  = (t)=>{ try{tg?.HapticFeedback?.notificationOccurred(t)}catch(e){} };
+
+/* ================= STATE ================= */
+const $ = s=>document.querySelector(s), $$ = s=>[...document.querySelectorAll(s)];
+const blank = {lic:{app:null,os:null},dl:{app:0,os:0}};
+let state = JSON.parse(localStorage.getItem("zth_state_v2")||JSON.stringify(blank));
+const save = ()=>localStorage.setItem("zth_state_v2",JSON.stringify(state));
+const isOn = p=>!!state.lic[p] && state.lic[p].exp>Date.now();
+const anyOn = ()=>isOn("app")||isOn("os");
+function left(p){
+  if(!isOn(p)) return null;
+  const ms=state.lic[p].exp-Date.now();
+  return ms>=864e5 ? Math.ceil(ms/864e5)+" дн." : Math.max(1,Math.ceil(ms/36e5))+" ч.";
+}
+
+let prod="app", selPlan="3d";
+
+/* ================= UI ================= */
+function toast(msg,err){
+  const t=$("#toast"); t.textContent=msg; t.className=(err?"err ":"")+"show";
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.className=err?"err":"",2400);
+}
+function render(){
+  const on=anyOn(), P=CONFIG.products[prod];
+  $("#uName").textContent=[user.first_name,user.last_name].filter(Boolean).join(" ")||"Гость";
+  $("#uTag").textContent=user.username?("@"+user.username):"Telegram";
+  $("#uId").textContent=user.id||"—";
+  if(user.photo_url){ $("#avatar").style.backgroundImage=`url(${user.photo_url})`; $("#avatar").textContent=""; }
+  else $("#avatar").textContent=(user.first_name||"Z")[0].toUpperCase();
+
+  $("#status").classList.toggle("on",on);
+  $("#statusTxt").textContent=on?"Лицензия активна":"Нет лицензии";
+  $("#pass").classList.toggle("off",!on);
+  $("#passTier").textContent=on?"Premium":"Free";
+  $("#passBig").textContent=on?"Лицензия активна":"Нет лицензии";
+  $("#pApp").textContent=left("app")||"—";
+  $("#pOs").textContent=left("os")||"—";
+  $("#uApp").textContent=left("app")?("Осталось "+left("app")):"Не активно";
+  $("#uOs").textContent=left("os")?("Осталось "+left("os")):"Не активно";
+  $("#uApp").classList.toggle("hi",isOn("app")); $("#uOs").classList.toggle("hi",isOn("os"));
+  $("#sDl").textContent=state.dl.app+state.dl.os;
+
+  // download view for selected product
+  $("#dlTitle").textContent=P.title; $("#dlVer").textContent=P.ver;
+  $("#dlIco").innerHTML=P.icon;
+  $("#dlGlyph").style.display=prod==="app"?"block":"none"; $("#dlIco").style.display=prod==="app"?"none":"";
+  $("#reqs").innerHTML=P.reqs.map(r=>`<div class="item"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+  const ok=isOn(prod);
+  $("#btnDl").disabled=!ok||!state.lic[prod]?.url;
+  $("#note").classList.toggle("ok",ok);
+  $("#noteTxt").textContent=ok?("Лицензия подтверждена · осталось "+left(prod)):"Для загрузки нужен активный ключ";
+  $("#noteIco").innerHTML=ok?'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>':'<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>';
+  $("#blurb").textContent=P.blurb;
+}
+
+/* ---- product switch (shared by shop + download) ---- */
+function setProd(p,silent){
+  prod=p; if(!silent) haptic();
+  $$(".seg").forEach(s=>{
+    const btns=[...s.querySelectorAll("button")], i=btns.findIndex(b=>b.dataset.p===p);
+    btns.forEach(b=>b.classList.toggle("active",b.dataset.p===p));
+    s.querySelector(".thumb").style.transform=`translateX(${i*100}%)`;
   });
-  if (name === 'profile') refreshProfile();
-  if (name === 'optimize') initOptimizeTab();
+  drawPlans(true); render();
 }
-tabs.buy.btn.onclick = () => showTab('buy');
-tabs.key.btn.onclick = () => showTab('key');
-tabs.profile.btn.onclick = () => showTab('profile');
-tabs.optimize.btn.onclick = () => showTab('optimize');
-document.getElementById('goToKeyTab').onclick = () => showTab('key');
-
-function isIOSDevice() {
-  if (tg?.platform === 'ios') return true;
-  return /iPhone/.test(navigator.userAgent);
-}
-let hasValidKey = false;
-function updateOptimizeTabVisibility() {
-  const show = isIOSDevice() && hasValidKey;
-  tabs.optimize.btn.style.display = show ? '' : 'none';
-  if (!show && tabs.optimize.view.classList.contains('active')) showTab('buy');
-}
-let optimizeInited = false;
-async function initOptimizeTab() {
-  if (optimizeInited) return;
-  optimizeInited = true;
-  const pill = document.getElementById('countryPill');
-  try {
-    const res = await fetch('https://ipapi.co/json/');
-    const data = await res.json();
-    pill.textContent = data.country_name ? `${data.country_name} (${data.country_code})` : 'не удалось определить';
-  } catch (e) {
-    pill.textContent = 'не удалось определить';
-  }
-}
-
-function isStandalone() {
-  return window.navigator.standalone === true;
-}
-const installBtn = document.getElementById('installAppBtn');
-const installModal = document.getElementById('installModal');
-const installModalCloseBtn = document.getElementById('installModalCloseBtn');
-
-if (installBtn) {
-  if (isStandalone()) {
-    installBtn.textContent = 'Уже установлено';
-    installBtn.disabled = true;
-  }
-  installBtn.addEventListener('click', () => {
-    if (tg && typeof tg.openLink === 'function' && !isStandalone()) {
-      tg.openLink(`${window.location.origin}/optimize`, { try_instant_view: false });
-    } else {
-      installModal.style.display = 'flex';
-    }
-  });
-}
-if (installModalCloseBtn) {
-  installModalCloseBtn.addEventListener('click', () => { installModal.style.display = 'none'; });
-}
-installModal.addEventListener('click', (e) => { if (e.target === installModal) installModal.style.display = 'none'; });
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-
-const optimizeModal = document.getElementById('optimizeModal');
-const optimizeBtn = document.getElementById('optimizeBtn');
-const modalDownloadLink = document.getElementById('modalDownloadLink');
-const modalCloseBtn = document.getElementById('modalCloseBtn');
-
-optimizeBtn.addEventListener('click', () => {
-  const savedKey = localStorage.getItem('zaetheron_key');
-  if (!savedKey) {
-    alert('Сначала введите и проверьте ключ во вкладке «Ключ».');
-    return;
-  }
-  modalDownloadLink.href = `${window.location.origin}/optimize.mobileconfig?key=${encodeURIComponent(savedKey)}`;
-  optimizeModal.style.display = 'flex';
-});
-modalDownloadLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  openDownload(modalDownloadLink.href);
-});
-modalCloseBtn.addEventListener('click', () => { optimizeModal.style.display = 'none'; });
-optimizeModal.addEventListener('click', (e) => { if (e.target === optimizeModal) optimizeModal.style.display = 'none'; });
-
-const COOLDOWN_MS = 5 * 60 * 1000;
-
-function cooldownRemaining(storageKey) {
-  const until = parseInt(localStorage.getItem(storageKey) || '0', 10);
-  return Math.max(0, until - Date.now());
-}
-function setCooldown(storageKey) {
-  localStorage.setItem(storageKey, String(Date.now() + COOLDOWN_MS));
-}
-function formatRemaining(ms) {
-  const s = Math.ceil(ms / 1000);
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, '0')}`;
-}
-function runCooldownUI(btn, storageKey, baseLabel) {
-  const remaining = cooldownRemaining(storageKey);
-  if (remaining <= 0) {
-    btn.disabled = false;
-    btn.textContent = baseLabel;
-    return;
-  }
-  btn.disabled = true;
-  const tick = () => {
-    const left = cooldownRemaining(storageKey);
-    if (left <= 0) {
-      btn.disabled = false;
-      btn.textContent = baseLabel;
-      return;
-    }
-    btn.textContent = `Подождите ${formatRemaining(left)}`;
-    setTimeout(tick, 1000);
-  };
-  tick();
-}
-
-document.querySelectorAll('.plan .buy-btn').forEach(btn => {
-  runCooldownUI(btn, 'zaetheron_buy_cooldown_until', 'Купить');
-  btn.addEventListener('click', async () => {
-    if (!tg || !tg.initData) {
-      alert('Открой это через Telegram, чтобы оформить покупку.');
-      return;
-    }
-    if (cooldownRemaining('zaetheron_buy_cooldown_until') > 0) return;
-    const plan = btn.closest('.plan');
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '...';
-    try {
-      const res = await fetch(`${window.location.origin}/buy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan: plan.dataset.plan,
-          label: plan.dataset.label,
-          price: plan.dataset.price,
-          init_data: tg.initData
-        })
-      });
-      if (res.ok) {
-        tg.HapticFeedback?.impactOccurred('light');
-        setCooldown('zaetheron_buy_cooldown_until');
-        document.querySelectorAll('.plan .buy-btn').forEach(b => runCooldownUI(b, 'zaetheron_buy_cooldown_until', 'Купить'));
-        if (tg.showAlert) {
-          tg.showAlert('Заявка отправлена! Проверьте личные сообщения от бота.');
-        } else {
-          alert('Заявка отправлена! Проверьте личные сообщения от бота.');
-        }
-        return;
-      } else if (res.status === 429) {
-        setCooldown('zaetheron_buy_cooldown_until');
-        document.querySelectorAll('.plan .buy-btn').forEach(b => runCooldownUI(b, 'zaetheron_buy_cooldown_until', 'Купить'));
-        return;
-      } else {
-        alert('Не удалось отправить заявку, попробуйте ещё раз.');
-      }
-    } catch (e) {
-      alert('Нет связи с сервером, попробуйте позже.');
-    }
-    btn.disabled = false;
-    btn.textContent = originalText;
-  });
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".seg button"); if(b) setProd(b.dataset.p);
 });
 
-const API_BASE = window.location.origin;
+/* ---- navigation ---- */
+function go(name){
+  haptic();
+  $$(".view").forEach(v=>v.classList.remove("active"));
+  $("#v-"+name).classList.add("active");
+  $$("nav button").forEach(b=>b.classList.toggle("active",b.dataset.go===name));
+  $("main").scrollTo({top:0});
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b) go(b.dataset.go); });
 
-const keyInput = document.getElementById('keyInput');
-const checkBtn = document.getElementById('checkBtn');
-const statusEl = document.getElementById('status');
-const downloadLink = document.getElementById('downloadLink');
-
-keyInput.addEventListener('input', () => {
-  keyInput.value = keyInput.value.toUpperCase();
+/* ---- key activation ---- */
+const ki=$("#keyInput");
+ki.addEventListener("input",()=>{
+  const body=ki.value.toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^ZTH/,"").slice(0,12);
+  ki.value="ZTH-"+(body.match(/.{1,4}/g)||[]).join("-");
+  $("#field").classList.remove("err");
 });
+async function verifyKey(key){
+  const r=await fetch(CONFIG.api,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({key,init_data:tg?.initData||""})});
+  const data=await r.json().catch(()=>({}));
+  return r.ok ? data : {ok:false, status:r.status, detail:data.detail||""};
+}
+function shakeField(){ const f=$("#field"); f.classList.remove("err"); void f.offsetWidth; f.classList.add("err"); }
+$("#btnActivate").onclick=async()=>{
+  const key=ki.value.trim(), b=$("#btnActivate");
+  if(key.length!==18){ shakeField(); notif("error"); return toast("Введите ключ полностью",true); }
+  b.disabled=true; b.textContent="Проверка…";
+  try{
+    const res=await verifyKey(key);
+    if(res.ok && CONFIG.products[res.product]){
+      const cur=state.lic[res.product], exp=res.expires_at*1000;
+      state.lic[res.product]={key,plan:res.plan,exp:isOn(res.product)?Math.max(exp,cur.exp):exp,url:res.download_url||""};
+      save(); ki.value="ZTH-"; notif("success");
+      setProd(res.product,true);
+      $("#sheetSub").textContent=CONFIG.products[res.product].name+" · "+res.plan;
+      const s=$("#sheet"); s.classList.add("show");
+      setTimeout(()=>{ s.classList.remove("show"); go("dl"); },1900);
+    }else{ shakeField(); notif("error"); toast(res.detail||"Неверный или уже использованный ключ",true); }
+  }catch(e){ toast("Ошибка сервера. Попробуйте позже",true); }
+  b.disabled=false; b.textContent="Активировать";
+};
 
-checkBtn.addEventListener('click', async () => {
-  const key = keyInput.value.trim();
-  statusEl.className = 'status';
-  downloadLink.style.display = 'none';
-  if (!key) {
-    statusEl.textContent = 'Введите ключ.';
-    statusEl.classList.add('err');
-    return;
-  }
-  checkBtn.disabled = true;
-  checkBtn.textContent = 'Проверяем…';
-  try {
-    const res = await fetch(`${API_BASE}/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      statusEl.textContent = data.expires_at
-        ? `Ключ активен до ${new Date(data.expires_at * 1000).toLocaleDateString('ru-RU')}.`
-        : 'Ключ активен бессрочно.';
-      statusEl.classList.add('ok');
-      localStorage.setItem('zaetheron_key', key);
-      hasValidKey = true;
-      updateOptimizeTabVisibility();
-      if (data.download_url) {
-        downloadLink.href = data.download_url;
-        downloadLink.style.display = 'block';
-        downloadLink.onclick = (e) => { e.preventDefault(); openDownload(downloadLink.href); };
-      }
-    } else {
-      statusEl.textContent = reasonToText(data.detail);
-      statusEl.classList.add('err');
-    }
-  } catch (e) {
-    statusEl.textContent = 'Не удалось связаться с сервером. Попробуйте позже.';
-    statusEl.classList.add('err');
-  } finally {
-    checkBtn.disabled = false;
-    checkBtn.textContent = 'Проверить и скачать';
-  }
+/* ---- shop ---- */
+function drawPlans(animate){
+  const P=CONFIG.products[prod], el=$("#plans");
+  el.innerHTML=CONFIG.plans.map(p=>`
+    <div class="item plan ${p.id===selPlan?"sel":""}" data-plan="${p.id}">
+      <div class="l"><span>${p.name}${p.tag?`<em class="badge">${p.tag}</em>`:""}</span><small>${p.desc}</small></div>
+      <div class="r"><div class="price">${P.prices[p.id]}</div>
+        <div class="radio"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+    </div>`).join("");
+  if(animate){ el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+}
+$("#plans").addEventListener("click",e=>{
+  const p=e.target.closest(".plan"); if(!p) return; haptic(); selPlan=p.dataset.plan; drawPlans();
 });
+$("#btnBuy").onclick=async()=>{
+  const b=$("#btnBuy"); b.disabled=true; b.textContent="Отправляем счёт…";
+  try{
+    const r=await fetch(CONFIG.buyApi,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({product:prod,plan:selPlan,init_data:tg?.initData||""})});
+    const data=await r.json().catch(()=>({}));
+    if(r.ok && data.ok){ notif("success"); toast("Счёт отправлен в чат с ботом"); setTimeout(()=>tg?.close?.(),900); }
+    else toast(data.detail||"Не удалось создать счёт",true);
+  }catch(e){ toast("Ошибка сети. Попробуйте позже",true); }
+  b.disabled=false; b.textContent="Купить";
+};
 
-function reasonToText(reason) {
-  switch (reason) {
-    case 'not_found': return 'Такой ключ не найден.';
-    case 'revoked': return 'Ключ отозван.';
-    case 'expired': return 'Срок действия ключа истёк.';
-    default: return 'Ключ недействителен.';
-  }
-}
-
-const tgUser = tg?.initDataUnsafe?.user;
-
-function initProfileIdentity() {
-  const avatarEl = document.getElementById('avatar');
-  const nameEl = document.getElementById('profileName');
-  const handleEl = document.getElementById('profileHandle');
-  const idEl = document.getElementById('profileTgId');
-
-  if (tgUser) {
-    const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ');
-    nameEl.textContent = fullName || 'Без имени';
-    handleEl.textContent = tgUser.username ? `@${tgUser.username}` : 'без username';
-    idEl.textContent = tgUser.id;
-    if (tgUser.photo_url) {
-      avatarEl.innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
-    } else {
-      avatarEl.textContent = (fullName || '?').trim().charAt(0).toUpperCase();
+/* ---- download ---- */
+$("#btnDl").onclick=()=>{
+  if(!isOn(prod)) return;
+  const P=CONFIG.products[prod], bar=$("#prog"),fill=$("#progI"),b=$("#btnDl"); let p=0;
+  bar.style.display="block"; b.disabled=true; b.textContent="Подготовка…";
+  const t=setInterval(()=>{
+    p+=Math.random()*14+4; fill.style.width=Math.min(p,100)+"%";
+    if(p>=100){
+      clearInterval(t); state.dl[prod]++; save(); render(); notif("success");
+      b.textContent="Скачать ещё раз"; b.disabled=!isOn(prod); toast("Загрузка готова");
+      const url=state.lic[prod]?.url; if(url){ tg?.openLink?tg.openLink(url):window.open(url,"_blank"); }
+      setTimeout(()=>{bar.style.display="none";fill.style.width="0"},900);
     }
-  } else {
-    nameEl.textContent = 'Гость';
-    handleEl.textContent = 'откройте через Telegram';
-    idEl.textContent = '—';
-    avatarEl.textContent = '?';
+  },150);
+};
+
+async function refreshLicenses(){
+  for(const p of Object.keys(CONFIG.products)){
+    const L=state.lic[p]; if(!L) continue;
+    try{
+      const res=await verifyKey(L.key);
+      if(res.ok){ L.exp=res.expires_at*1000; L.url=res.download_url||""; }
+      else if(res.status>=400 && res.status<500){ state.lic[p]=null; }  // отозван, истёк или ключа больше нет
+    }catch(e){}                                                          // нет сети: оставляем сохранённое
   }
+  save(); render();
 }
-initProfileIdentity();
-
-async function refreshProfile() {
-  const savedKey = localStorage.getItem('zaetheron_key');
-  const emptyEl = document.getElementById('licenseEmpty');
-  const filledEl = document.getElementById('licenseFilled');
-  const pStatus = document.getElementById('profileStatus');
-  pStatus.textContent = '';
-  pStatus.className = 'status';
-
-  if (!savedKey) {
-    emptyEl.style.display = 'block';
-    filledEl.style.display = 'none';
-    return;
-  }
-
-  emptyEl.style.display = 'none';
-  filledEl.style.display = 'block';
-  document.getElementById('lKey').textContent = savedKey;
-  document.getElementById('lStatus').textContent = 'Проверяем…';
-  const profileDownloadLink = document.getElementById('profileDownloadLink');
-  profileDownloadLink.style.display = 'none';
-
-  try {
-    const res = await fetch(`${API_BASE}/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: savedKey })
-    });
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      document.getElementById('lStatus').innerHTML = '<span class="badge-ok">активен</span>';
-      document.getElementById('lExpires').textContent = data.expires_at
-        ? new Date(data.expires_at * 1000).toLocaleDateString('ru-RU')
-        : 'бессрочно';
-      document.getElementById('lHwid').textContent = data.hwid_bound ? 'привязано' : 'не привязано';
-      if (data.download_url) {
-        profileDownloadLink.href = data.download_url;
-        profileDownloadLink.style.display = 'block';
-        profileDownloadLink.onclick = (e) => { e.preventDefault(); openDownload(profileDownloadLink.href); };
-      }
-      hasValidKey = true;
-    } else {
-      document.getElementById('lStatus').innerHTML = `<span class="badge-err">${reasonToText(data.detail)}</span>`;
-      document.getElementById('lExpires').textContent = '—';
-      document.getElementById('lHwid').textContent = '—';
-      hasValidKey = false;
-    }
-  } catch (e) {
-    document.getElementById('lStatus').innerHTML = '<span class="badge-err">нет связи с сервером</span>';
-  }
-  updateOptimizeTabVisibility();
-}
-
-document.getElementById('forgetKeyBtn').addEventListener('click', () => {
-  localStorage.removeItem('zaetheron_key');
-  hasValidKey = false;
-  updateOptimizeTabVisibility();
-  refreshProfile();
-});
-
-if (localStorage.getItem('zaetheron_key')) {
-  refreshProfile();
-}
-
-const reportBtn = document.getElementById('reportBtn');
-const reportText = document.getElementById('reportText');
-const reportStatus = document.getElementById('reportStatus');
-runCooldownUI(reportBtn, 'zaetheron_report_cooldown_until', 'Отправить репорт');
-
-reportBtn.addEventListener('click', async () => {
-  reportStatus.className = 'status';
-  if (!tg || !tg.initData) {
-    reportStatus.textContent = 'Открой это через Telegram, чтобы отправить репорт.';
-    reportStatus.classList.add('err');
-    return;
-  }
-  if (cooldownRemaining('zaetheron_report_cooldown_until') > 0) return;
-  const text = reportText.value.trim();
-  if (!text) {
-    reportStatus.textContent = 'Опишите проблему перед отправкой.';
-    reportStatus.classList.add('err');
-    return;
-  }
-  const originalText = reportBtn.textContent;
-  reportBtn.disabled = true;
-  reportBtn.textContent = '...';
-  try {
-    const res = await fetch(`${window.location.origin}/report`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        init_data: tg.initData,
-        key: localStorage.getItem('zaetheron_key') || null
-      })
-    });
-    if (res.ok) {
-      setCooldown('zaetheron_report_cooldown_until');
-      runCooldownUI(reportBtn, 'zaetheron_report_cooldown_until', 'Отправить репорт');
-      reportText.value = '';
-      reportStatus.textContent = 'Отправлено! Ответ придёт в чат с ботом.';
-      reportStatus.classList.add('ok');
-      return;
-    } else if (res.status === 429) {
-      setCooldown('zaetheron_report_cooldown_until');
-      runCooldownUI(reportBtn, 'zaetheron_report_cooldown_until', 'Отправить репорт');
-      reportStatus.textContent = 'Слишком часто — подождите перед следующей отправкой.';
-      reportStatus.classList.add('err');
-      return;
-    } else {
-      reportStatus.textContent = 'Не удалось отправить, попробуйте ещё раз.';
-      reportStatus.classList.add('err');
-    }
-  } catch (e) {
-    reportStatus.textContent = 'Нет связи с сервером.';
-    reportStatus.classList.add('err');
-  }
-  reportBtn.disabled = false;
-  reportBtn.textContent = originalText;
-});
-
-const canvas = document.getElementById('sky');
-const ctx = canvas.getContext('2d');
-let W, H, dpr;
-function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-window.addEventListener('resize', resize);
-resize();
-
-const stars = Array.from({length: 90}, () => ({
-  x: Math.random() * W, y: Math.random() * H,
-  r: Math.random() * 1.3 + 0.3,
-  phase: Math.random() * Math.PI * 2,
-  speed: 0.015 + Math.random() * 0.02
-}));
-
-function newMeteor() {
-  const startX = Math.random() * W * 1.3 - W * 0.15;
-  return {
-    x: startX, y: -20,
-    len: 60 + Math.random() * 90,
-    speed: 3 + Math.random() * 3.5,
-    angle: Math.PI / 3.4,
-    life: 0,
-    maxLife: 60 + Math.random() * 60,
-    hue: Math.random() > 0.5 ? '95,228,211' : '91,140,255',
-    width: 1 + Math.random() * 1.2
-  };
-}
-let meteors = [];
-let meteorTimer = 0;
-
-let t = 0;
-function tick() {
-  t += 1;
-  ctx.clearRect(0, 0, W, H);
-
-  for (const s of stars) {
-    const alpha = 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(234,246,255,${alpha.toFixed(2)})`;
-    ctx.fill();
-  }
-
-  meteorTimer--;
-  if (meteorTimer <= 0 && meteors.length < 4) {
-    meteors.push(newMeteor());
-    meteorTimer = 70 + Math.random() * 90;
-  }
-
-  meteors.forEach(m => {
-    m.life++;
-    m.x += Math.cos(m.angle) * m.speed;
-    m.y += Math.sin(m.angle) * m.speed;
-    const tailX = m.x - Math.cos(m.angle) * m.len;
-    const tailY = m.y - Math.sin(m.angle) * m.len;
-    const grad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
-    grad.addColorStop(0, `rgba(${m.hue},0.9)`);
-    grad.addColorStop(1, `rgba(${m.hue},0)`);
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = m.width;
-    ctx.beginPath();
-    ctx.moveTo(m.x, m.y);
-    ctx.lineTo(tailX, tailY);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, m.width * 0.9, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${m.hue},1)`;
-    ctx.fill();
-  });
-  meteors = meteors.filter(m => m.life < m.maxLife && m.y < H + 60 && m.x < W + 60);
-
-  requestAnimationFrame(tick);
-}
-tick();
-
-function launchFlyingTitle() {
-  const el = document.getElementById('flyingTitle');
-  el.classList.remove('fly');
-  void el.offsetWidth;
-  el.classList.add('fly');
-}
-setTimeout(() => {
-  launchFlyingTitle();
-  setInterval(launchFlyingTitle, 15000);
-}, 3000);
+setProd("app",true);
+refreshLicenses();
+setInterval(render,60000);   // keep remaining time fresh
 </script>
 </body>
 </html>
