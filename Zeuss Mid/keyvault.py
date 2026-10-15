@@ -61,3 +61,14 @@ def decrypt_key(token: str) -> Optional[str]:
         return _fernet().decrypt(token.encode()).decode()
     except InvalidToken:
         return None
+
+
+# ---------- Товары и цены (общие для бота и сервера) ----------
+# Цены в рублях. Меняешь здесь — меняется и в боте, и в key_server.py.
+# В index.html цены дублируются для показа (CONFIG.products.*.prices): поменяй и там.
+PRODUCTS = {
+    "app": {"title": "Zaetheron для Windows", "prices": {"1d": 399, "3d": 699, "7d": 1299}},
+    "os": {"title": "Zaetheron Custom OS", "prices": {"1d": 539, "3d": 944, "7d": 1754}},
+}
+PLAN_DAYS = {"1d": 1, "3d": 3, "7d": 7}
+PLAN_LABELS = {"1d": "1 день", "3d": "3 дня", "7d": "7 дней"}

@@ -1,23 +1,28 @@
 """
 Zaetheron Industry — Telegram-бот.
-Открывает Mini App и пересылает заявки на покупку админу в личку.
+Выдаёт ключи и отвечает на команды. Оплату принимает Telegram Payments:
+счёт выставляет key_server.py (мини-апп → /buy), а сюда приходит подтверждение
+оплаты, и бот сам выдаёт ключ покупателю.
 
 Переменные окружения:
     BOT_TOKEN        — токен бота от @BotFather
-    ADMIN_CHAT_ID    — твой Telegram ID (числом), куда падают заявки на покупку
+    ADMIN_CHAT_ID    — твой Telegram ID (числом), куда падают уведомления
     WEBAPP_URL       — https-ссылка на мини-апп, например https://your-app.up.railway.app/app
     DATABASE_URL     — та же Postgres-БД, что использует key_server.py
     KEY_SECRET       — секрет шифрования ключей, тот же, что у key_server.py. После запуска не меняй!
-    OPTIMIZE_URL     — необязательно: ссылка на optimize.html, если её нельзя построить из WEBAPP_URL
 
-Файлы bot.py и keyvault.py должны лежать в одной папке.
+Платёжный токен (PAYMENT_PROVIDER_TOKEN) задаётся только в key_server.py, боту он не нужен.
+
+Файлы bot.py, keyvault.py и key_server.py должны лежать в одной папке.
 
 Запуск локально (Windows):
     py -m pip install aiogram psycopg2-binary cryptography
     py bot.py
 
 Админ-команды (доступны только ADMIN_CHAT_ID, только в личке):
-    /addkey 1d|3d|7d [TELEGRAM_ID] [заметка]  — создать ключ ZTH-XXXX-XXXX-XXXX.
+    /addkey 1d|3d|7d [app|os] [TELEGRAM_ID] [заметка]
+                                  — создать ключ ZTH-XXXX-XXXX-XXXX.
+                                    app — приложение (по умолчанию), os — Custom OS.
                                     Ключ придумывает сервер, вручную его задать нельзя.
                                     Максимальный срок — 7 дней.
                                     Если указан TELEGRAM_ID, покупатель получит ключ в личку.
@@ -26,11 +31,11 @@ Zaetheron Industry — Telegram-бот.
     /reply TELEGRAM_ID текст      — ответить пользователю на тикет поддержки от имени бота
 
 Команды для всех пользователей:
+    /start                        — открыть мини-апп
     /mykey                        — показать свой ключ, статус, срок действия
     /support ТЕКСТ                — отправить обращение в поддержку (видно только админу)
 """
 import asyncio
-import json
 import logging
 import os
 import re
@@ -44,6 +49,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
     Message,
+    PreCheckoutQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     WebAppInfo,
@@ -57,36 +63,22 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 ADMIN_CHAT_ID = int(os.environ["ADMIN_CHAT_ID"])
 WEBAPP_URL = os.environ["WEBAPP_URL"]
-DATABASE_URL = os.environ.get("DATABASE_URL")  # нужна для ключей
-
-
-def _resolve_optimize_url(webapp_url: str) -> str:
-    """Строит ссылку на optimize.html на основе WEBAPP_URL.
-
-    key_server.py отдаёт index.html по маршруту /app и optimize.html по
-    маршруту /optimize (оба — на корне домена, не друг в друге).
-    Поэтому берём схему+домен из WEBAPP_URL и просто добавляем /optimize.
-    Можно переопределить явно через переменную окружения OPTIMIZE_URL.
-    """
-    scheme_and_host = webapp_url.split("://", 1)
-    if len(scheme_and_host) == 2:
-        scheme, rest = scheme_and_host
-        host = rest.split("/", 1)[0]
-        return f"{scheme}://{host}/optimize"
-    return webapp_url.rstrip("/") + "/optimize"
-
-
-# Ссылка, которую откроет кнопка бота. По умолчанию высчитывается из WEBAPP_URL,
-# но если структура твоего хостинга другая — задай OPTIMIZE_URL напрямую в .env,
-# например OPTIMIZE_URL=https://zeus-keys-production.up.railway.app/optimize
-OPTIMIZE_URL = os.environ.get("OPTIMIZE_URL", _resolve_optimize_url(WEBAPP_URL))
-SELLER_USERNAME = os.environ.get("SELLER_USERNAME", "hopeyng")  # без @, для ссылки на оплату
+DATABASE_URL = os.environ.get("DATABASE_URL")  # нужна для ключей и платежей
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-ALLOWED_DAYS = (1, 3, 7)     # максимальный срок — 7 дней
-KEY_CLEANUP_INTERVAL = 300   # раз в 5 минут удаляем истёкшие ключи из базы
+ALLOWED_DAYS = tuple(keyvault.PLAN_DAYS.values())  # 1, 3, 7
+KEY_CLEANUP_INTERVAL = 300  # раз в 5 минут удаляем истёкшие ключи из базы
+
+BANNER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zeus_bg_01.jpg")
+WELCOME_TEXT = (
+    "Zaetheron Industry\n\n"
+    "Тарифы, статус ключа и скачивание — в мини-приложении ниже.\n\n"
+    "Команды:\n"
+    "/mykey — посмотреть свой ключ и его статус\n"
+    "/support ТЕКСТ — написать в поддержку"
+)
 
 
 def db():
@@ -105,16 +97,6 @@ def webapp_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-BANNER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zeus_bg_01.jpg")
-WELCOME_TEXT = (
-    "Zaetheron Industry\n\n"
-    "Тарифы, статус ключа и скачивание клиента — в мини-приложении ниже.\n\n"
-    "Команды:\n"
-    "/mykey — посмотреть свой ключ и его статус\n"
-    "/support ТЕКСТ — написать в поддержку"
-)
-
-
 @dp.message(CommandStart())
 async def start(message: Message):
     if os.path.exists(BANNER_PATH):
@@ -127,8 +109,9 @@ async def start(message: Message):
 
 def ensure_schema():
     """Запускается один раз при старте.
-    Создаёт таблицу key_history (её никогда не чистим, она и гарантирует уникальность),
-    добавляет колонку key_enc и переводит старые ключи из открытого вида в зашифрованный."""
+    key_history — никогда не чистим, она гарантирует уникальность ключей.
+    keys.key_enc и keys.product — колонки, которых раньше не было.
+    payments — журнал оплат: по нему не выдаём ключ за один платёж дважды."""
     migrated = 0
     with closing(db()) as conn:
         with conn.cursor() as cur:
@@ -141,6 +124,20 @@ def ensure_schema():
                 """
             )
             cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS key_enc TEXT")
+            cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS product TEXT DEFAULT 'app'")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS payments (
+                    charge_id   TEXT PRIMARY KEY,
+                    telegram_id BIGINT NOT NULL,
+                    product     TEXT NOT NULL,
+                    plan        TEXT NOT NULL,
+                    amount      INTEGER NOT NULL,
+                    currency    TEXT NOT NULL,
+                    created_at  BIGINT NOT NULL
+                )
+                """
+            )
             # строки, где ключ ещё лежит открытым текстом: key_enc пустой
             cur.execute("SELECT key FROM keys WHERE key_enc IS NULL")
             legacy_keys = [r[0] for r in cur.fetchall()]
@@ -160,40 +157,71 @@ def ensure_schema():
         logging.info("Зашифровано старых ключей: %s", migrated)
 
 
-def issue_key(days: int, buyer_id, note):
-    """Придумывает ключ, шифрует его и кладёт в базу. Возвращает (ключ, expires_at).
+def _insert_new_key(cur, days: int, buyer_id, note, product: str, now: int):
+    """Внутри открытой транзакции: придумывает ключ, пишет его хэш в key_history
+    и строку в keys. Возвращает (ключ, expires_at).
 
-    Уникальность: хэш каждого выданного ключа пишется в key_history, а эта таблица
-    не чистится никогда. Поэтому ключ не повторится, даже если его строка в keys
-    уже удалена после истечения срока. Вставка в key_history идёт с ON CONFLICT,
-    так что два одновременных /addkey не выдадут один и тот же ключ.
-    """
-    now = int(time.time())
+    Хэш в key_history не удаляется никогда, поэтому ключ не повторится,
+    даже если его строка в keys уже удалена после истечения срока."""
     expires_at = now + days * 86400
+    for _ in range(20):
+        plain = keyvault.generate_plain_key()
+        key_hash = keyvault.lookup_hash(plain)
+        cur.execute(
+            "INSERT INTO key_history (key_hash, issued_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (key_hash, now),
+        )
+        if cur.rowcount == 0:
+            continue  # такой ключ уже выдавали раньше, берём другой
+        cur.execute(
+            """
+            INSERT INTO keys (key, key_enc, hwid, active, max_activations, activations,
+                              expires_at, resets_left, note, created_at, telegram_id, product)
+            VALUES (%s, %s, NULL, 1, 1, 0, %s, 2, %s, %s, %s, %s)
+            """,
+            (key_hash, keyvault.encrypt_key(plain), expires_at, note, now, buyer_id, product),
+        )
+        return plain, expires_at
+    raise RuntimeError("Не удалось подобрать свободный ключ, попробуй ещё раз")
+
+
+def issue_key(days: int, buyer_id, note, product: str = "app"):
+    """Выдаёт ключ по команде /addkey. Возвращает (ключ, expires_at)."""
+    now = int(time.time())
     with closing(db()) as conn:
         try:
             with conn.cursor() as cur:
-                for _ in range(20):
-                    plain = keyvault.generate_plain_key()
-                    key_hash = keyvault.lookup_hash(plain)
-                    cur.execute(
-                        "INSERT INTO key_history (key_hash, issued_at) VALUES (%s, %s) "
-                        "ON CONFLICT DO NOTHING",
-                        (key_hash, now),
-                    )
-                    if cur.rowcount == 0:
-                        continue  # такой ключ уже выдавали раньше, берём другой
-                    cur.execute(
-                        """
-                        INSERT INTO keys (key, key_enc, hwid, active, max_activations, activations,
-                                          expires_at, resets_left, note, created_at, telegram_id)
-                        VALUES (%s, %s, NULL, 1, 1, 0, %s, 2, %s, %s, %s)
-                        """,
-                        (key_hash, keyvault.encrypt_key(plain), expires_at, note, now, buyer_id),
-                    )
-                    conn.commit()
-                    return plain, expires_at
-            raise RuntimeError("Не удалось подобрать свободный ключ, попробуй ещё раз")
+                result = _insert_new_key(cur, days, buyer_id, note, product, now)
+            conn.commit()
+            return result
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def fulfill_payment(charge_id, buyer_id, product, plan, amount, currency):
+    """Записывает платёж и выдаёт ключ в одной транзакции.
+    Повторный вызов с тем же charge_id ничего не выдаёт.
+    Возвращает (ключ, expires_at) или None, если платёж уже обработан."""
+    now = int(time.time())
+    days = keyvault.PLAN_DAYS[plan]
+    with closing(db()) as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO payments (charge_id, telegram_id, product, plan, amount, currency, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (charge_id) DO NOTHING
+                    """,
+                    (charge_id, buyer_id, product, plan, amount, currency, now),
+                )
+                if cur.rowcount == 0:
+                    conn.rollback()
+                    return None
+                result = _insert_new_key(cur, days, buyer_id, f"оплата {charge_id}", product, now)
+            conn.commit()
+            return result
         except Exception:
             conn.rollback()
             raise
@@ -213,7 +241,8 @@ async def add_key(message: Message):
         return
 
     usage = (
-        "Формат: /addkey 1d|3d|7d [TELEGRAM_ID] [заметка]\n"
+        "Формат: /addkey 1d|3d|7d [app|os] [TELEGRAM_ID] [заметка]\n"
+        "app — приложение (по умолчанию), os — Custom OS.\n"
         "Ключ придумывает сервер. Максимальный срок — 7 дней.\n"
         "TELEGRAM_ID необязателен: если указан, покупатель получит ключ в личку."
     )
@@ -231,9 +260,13 @@ async def add_key(message: Message):
         await message.answer("Доступные сроки: 1d, 3d, 7d. Больше 7 дней не выдаю.")
         return
 
+    rest = parts[2:]
+    product = "app"
+    if rest and rest[0].lower() in keyvault.PRODUCTS:
+        product = rest.pop(0).lower()
+
     buyer_id = None
     note = None
-    rest = parts[2:]
     if rest:
         if rest[0].isdigit():
             buyer_id = int(rest[0])
@@ -241,8 +274,9 @@ async def add_key(message: Message):
         else:
             note = " ".join(rest)
 
+    title = keyvault.PRODUCTS[product]["title"]
     try:
-        key, expires_at = await asyncio.to_thread(issue_key, days, buyer_id, note)
+        key, expires_at = await asyncio.to_thread(issue_key, days, buyer_id, note, product)
     except Exception as e:
         logging.exception("Ошибка при создании ключа")
         await message.answer(f"Не удалось создать ключ: {e}")
@@ -251,6 +285,7 @@ async def add_key(message: Message):
     expires_text = datetime.fromtimestamp(expires_at).strftime("%d.%m.%Y %H:%M")
     result_text = (
         f"✅ Ключ создан: {key}\n"
+        f"Продукт: {title}\n"
         f"Срок: {days} дн.\n"
         f"Удалится из базы после {expires_text}"
     )
@@ -260,6 +295,7 @@ async def add_key(message: Message):
             await bot.send_message(
                 buyer_id,
                 "🔑 Ваш ключ создан!\n\n"
+                f"Продукт: {title}\n"
                 f"Ключ: {key}\n"
                 f"Срок действия: {days} дн.\n\n"
                 "Активировать можно в мини-приложении (/start) или командой /mykey.",
@@ -379,14 +415,16 @@ async def my_key(message: Message):
         else datetime.fromtimestamp(row["expires_at"]).strftime("%d.%m.%Y")
     )
     hwid_text = "привязано" if row["hwid"] else "не привязано"
+    product_title = keyvault.PRODUCTS.get(row.get("product") or "app", {}).get("title", "—")
 
     await message.answer(
         f"🔑 Ваш ключ: {plain_key}\n"
+        f"Продукт: {product_title}\n"
         f"Статус: {status}\n"
         f"Действует до: {expires_text}\n"
         f"Устройство: {hwid_text}\n"
         f"Осталось сбросов привязки: {row['resets_left']}\n\n"
-        f"Для сброса привязки устройства обратитесь в поддержку — /support"
+        "Для сброса привязки устройства обратитесь в поддержку — /support"
     )
 
 
@@ -486,47 +524,81 @@ async def reply_to_user(message: Message):
     await message.answer(f"✅ Ответ отправлен пользователю {target_id}.")
 
 
-@dp.message(F.web_app_data)
-async def handle_webapp_data(message: Message):
-    """Ловит данные, отправленные из мини-аппа через Telegram.WebApp.sendData(...)"""
+# ---------- Оплата через Telegram Payments ----------
+
+def check_invoice_payload(payload: str, amount: int, currency: str):
+    """Проверяет счёт до списания денег. Возвращает текст ошибки или None."""
+    product, _, plan = payload.partition(":")
+    if product not in keyvault.PRODUCTS or plan not in keyvault.PLAN_DAYS:
+        return "Такого тарифа больше нет. Оформите заказ заново в мини-приложении"
+    if currency != "RUB" or amount != keyvault.PRODUCTS[product]["prices"][plan] * 100:
+        return "Цена изменилась. Оформите заказ заново в мини-приложении"
+    return None
+
+
+@dp.pre_checkout_query()
+async def pre_checkout(query: PreCheckoutQuery):
+    """Telegram спрашивает перед списанием: цена и товар совпадают с прайсом?"""
+    error = check_invoice_payload(query.invoice_payload, query.total_amount, query.currency)
+    await bot.answer_pre_checkout_query(query.id, ok=error is None, error_message=error)
+
+
+@dp.message(F.successful_payment)
+async def successful_payment(message: Message):
+    """Оплата прошла: выдаём ключ тому, кто платил."""
+    payment = message.successful_payment
+    buyer = message.from_user
+    buyer_id = buyer.id
+    product, _, plan = payment.invoice_payload.partition(":")
+    charge_id = payment.telegram_payment_charge_id
+    title = keyvault.PRODUCTS.get(product, {}).get("title", product)
+    uname = f"@{buyer.username}" if buyer.username else "(нет username)"
+
     try:
-        payload = json.loads(message.web_app_data.data)
-    except (ValueError, AttributeError):
-        await message.answer("Не удалось разобрать запрос, попробуйте ещё раз.")
+        result = await asyncio.to_thread(
+            fulfill_payment, charge_id, buyer_id, product, plan, payment.total_amount, payment.currency
+        )
+    except Exception as e:
+        logging.exception("Ошибка выдачи ключа после оплаты %s", charge_id)
+        await message.answer(
+            "Оплата прошла, но ключ не выдался автоматически. Напишите /support — всё будет выдано."
+        )
+        await bot.send_message(
+            ADMIN_CHAT_ID,
+            "⚠️ Оплата прошла, ключ не выдан автоматически\n\n"
+            f"Покупатель: {buyer.full_name} {uname}\n"
+            f"Telegram ID: {buyer_id}\n"
+            f"Товар: {title}, {plan}\n"
+            f"Чек: {charge_id}\n"
+            f"Ошибка: {e}\n\n"
+            f"Выдать вручную: /addkey {plan} {product} {buyer_id}",
+        )
         return
 
-    if payload.get("action") != "buy":
+    if result is None:
+        logging.warning("Повторное уведомление об оплате %s, ключ уже выдан", charge_id)
         return
 
-    user = message.from_user
-    plan_label = payload.get("label", payload.get("plan", "неизвестный тариф"))
-    price = payload.get("price", "?")
-
-    seller_kb = InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(text=f"Написать @{SELLER_USERNAME}", url=f"https://t.me/{SELLER_USERNAME}")
-        ]]
-    )
-
-    # Подтверждение покупателю — с прямой ссылкой на продавца
+    key, expires_at = result
+    days = keyvault.PLAN_DAYS[plan]
+    expires_text = datetime.fromtimestamp(expires_at).strftime("%d.%m.%Y %H:%M")
     await message.answer(
-        f"Заявка на «{plan_label}» ({price}₽) принята.\n"
-        f"Для оплаты и получения ключа напишите продавцу:",
-        reply_markup=seller_kb,
+        "✅ Оплата получена!\n\n"
+        f"Товар: {title}\n"
+        f"Ключ: {key}\n"
+        f"Срок: {days} дн., до {expires_text}\n\n"
+        "Активировать можно в мини-приложении или командой /mykey.",
+        reply_markup=webapp_keyboard(),
     )
-
-    # Заявка админу (для учёта — видно только вам)
-    username = f"@{user.username}" if user.username else "(нет username)"
-    admin_text = (
-        "🛒 Новая заявка\n\n"
-        f"Тариф: {plan_label}\n"
-        f"Цена: {price}₽\n"
-        f"Покупатель: {user.full_name} {username}\n"
-        f"Telegram ID: {user.id}\n\n"
-        f"Открыть чат: tg://user?id={user.id}\n"
-        f"Выдать ключ: /addkey 1d|3d|7d {user.id}"
+    await bot.send_message(
+        ADMIN_CHAT_ID,
+        "💰 Оплата получена\n\n"
+        f"Товар: {title}, {days} дн.\n"
+        f"Покупатель: {buyer.full_name} {uname}\n"
+        f"Telegram ID: {buyer_id}\n"
+        f"Сумма: {payment.total_amount // 100} ₽\n"
+        f"Ключ: {key}",
     )
-    await bot.send_message(ADMIN_CHAT_ID, admin_text)
 
 
 async def main():
@@ -538,7 +610,7 @@ async def main():
             )
         await asyncio.to_thread(ensure_schema)
         asyncio.create_task(cleanup_expired_loop())
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 
 if __name__ == "__main__":

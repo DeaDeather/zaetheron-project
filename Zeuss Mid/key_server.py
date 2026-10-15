@@ -44,6 +44,12 @@ DOWNLOAD_URL  = os.environ.get(
     "https://drive.google.com/file/d/1sMyDNsyQUdOPkn2Pns8I13f58IQ7tgS8/view?usp=drive_link",
 )
 
+DOWNLOAD_URLS = {
+    "app": os.environ.get("DOWNLOAD_URL_APP", DOWNLOAD_URL),
+    "os": os.environ.get("DOWNLOAD_URL_OS", ""),  # пусто — кнопка Custom OS неактивна
+}
+PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "")  # из @BotFather → Payments, валюта RUB
+
 SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
 SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
 
@@ -253,6 +259,7 @@ def init_db():
             """)
             cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS telegram_id BIGINT")
             cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS key_enc TEXT")
+            cur.execute("ALTER TABLE keys ADD COLUMN IF NOT EXISTS product TEXT DEFAULT 'app'")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS request_cooldowns (
                     user_id BIGINT NOT NULL,
@@ -308,10 +315,13 @@ class CheckReq(BaseModel):
     key: str
 
 class BuyReq(BaseModel):
+    product: str
     plan: str
-    label: str
-    price: str
     init_data: str
+
+class VerifyReq(BaseModel):
+    key: str
+
 
 class ReportReq(BaseModel):
     message: str
@@ -419,13 +429,66 @@ def deactivate(req: DeactivateReq):
         return {"ok": True}
 
 
+def tg_call(method: str, payload: dict):
+    """Прямой вызов Bot API. Возвращает (успех, текст ошибки)."""
+    if not BOT_TOKEN:
+        return False, "BOT_TOKEN не задан"
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{method}", json=payload, timeout=10)
+        data = r.json()
+    except Exception as e:
+        return False, str(e)
+    if data.get("ok"):
+        return True, ""
+    return False, data.get("description", "ошибка Telegram")
+
+
+@app.post("/api/verify")
+def api_verify(req: VerifyReq):
+    """Проверка ключа из мини-аппа. Ключ здесь не привязывается к устройству."""
+    key = _norm(req.key)
+    with closing(db()) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM keys WHERE key = %s", (_kh(key),))
+            row = cur.fetchone()
+    if row is None:
+        raise HTTPException(404, "Ключ не найден")
+    if not row["active"]:
+        raise HTTPException(403, "Ключ отозван")
+    expires_at = row["expires_at"]
+    if expires_at and expires_at < time.time():
+        raise HTTPException(403, "Срок действия ключа истёк")
+
+    product = row.get("product") or "app"
+    days = 0
+    if expires_at:
+        started = row["created_at"] or time.time()
+        days = max(1, round((expires_at - started) / 86400))
+    return {
+        "ok": True,
+        "product": product,
+        "plan": keyvault.PLAN_LABELS.get(f"{days}d", f"{days} дн."),
+        "days": days,
+        "expires_at": expires_at,
+        "download_url": DOWNLOAD_URLS.get(product) or None,
+    }
+
+
 @app.post("/buy")
 def buy(req: BuyReq):
+    """Покупка из мини-аппа. Цену считает сервер, из браузера её не подменить.
+    С PAYMENT_PROVIDER_TOKEN счёт уходит в чат с ботом, ключ выдаёт бот после оплаты.
+    Без токена покупатель получает контакт продавца, как раньше."""
     user = verify_init_data(req.init_data)
     if not user:
-        raise HTTPException(401, "invalid_init_data")
+        raise HTTPException(401, "Откройте магазин из Telegram")
+    if req.product not in keyvault.PRODUCTS or req.plan not in keyvault.PLAN_DAYS:
+        raise HTTPException(400, "Неизвестный товар или срок")
 
     user_id = user.get("id")
+    product = keyvault.PRODUCTS[req.product]
+    price = product["prices"][req.plan]
+    title = f"{product['title']} — {keyvault.PLAN_LABELS[req.plan]}"
 
     with closing(db()) as conn:
         with conn.cursor() as cur:
@@ -434,33 +497,44 @@ def buy(req: BuyReq):
     if not allowed:
         raise HTTPException(429, f"Слишком часто. Попробуйте через {retry_after} сек.")
 
-    username = user.get("username")
-    full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+    if PAYMENT_PROVIDER_TOKEN:
+        ok, err = tg_call("sendInvoice", {
+            "chat_id": user_id,
+            "title": title,
+            "description": "Ключ придёт в этот чат сразу после оплаты.",
+            "payload": f"{req.product}:{req.plan}",
+            "provider_token": PAYMENT_PROVIDER_TOKEN,
+            "currency": "RUB",
+            "prices": [{"label": title, "amount": price * 100}],  # в копейках
+        })
+        if not ok:
+            logging.error("sendInvoice: %s", err)
+            raise HTTPException(502, "Не удалось выставить счёт. Попробуйте позже.")
+        return {"ok": True, "mode": "invoice"}
 
+    # ручной режим: заявка продавцу
+    username = user.get("username")
+    uname = f"@{username}" if username else "(нет username)"
+    full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
     tg_send_message(
         user_id,
-        f"Заявка на «{req.label}» ({req.price}₽) принята.\n"
-        f"Для оплаты и получения ключа напишите продавцу:",
-        reply_markup={
-            "inline_keyboard": [[
-                {"text": f"Написать @{SELLER_USERNAME}", "url": f"https://t.me/{SELLER_USERNAME}"}
-            ]]
-        },
+        f"Заявка на «{title}» ({price}₽) принята.\n"
+        "Для оплаты и получения ключа напишите продавцу:",
+        reply_markup={"inline_keyboard": [[
+            {"text": f"Написать @{SELLER_USERNAME}", "url": f"https://t.me/{SELLER_USERNAME}"}
+        ]]},
     )
-
     if ADMIN_CHAT_ID:
-        uname = f"@{username}" if username else "(нет username)"
         tg_send_message(
             ADMIN_CHAT_ID,
             "🛒 Новая заявка\n\n"
-            f"Тариф: {req.label}\n"
-            f"Цена: {req.price}₽\n"
+            f"Тариф: {title}\n"
+            f"Цена: {price}₽\n"
             f"Покупатель: {full_name} {uname}\n"
             f"Telegram ID: {user_id}\n\n"
-            f"Создать ключ: /addkey КЛЮЧ ДНИ {user_id}",
+            f"Создать ключ: /addkey {req.plan} {req.product} {user_id}",
         )
-
-    return {"ok": True}
+    return {"ok": True, "mode": "manual"}
 
 
 @app.post("/report")

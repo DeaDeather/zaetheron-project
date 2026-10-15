@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fb">
+<title>Zaetheron</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --text:#1d1d1f; --mute:#6e6e73; --faint:#a1a1a6;
+  --blue:#0071e3; --blue2:#2997ff; --sky:#e8f2ff; --sep:rgba(60,60,67,.12);
+  --ok:#1fa85a; --err:#e5484d;
+  --shadow:0 1px 2px rgba(16,40,90,.04),0 8px 28px rgba(16,40,90,.06);
+  --spring:cubic-bezier(.32,1.28,.5,1);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root{--logo:url("data:image/png;base64,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")}
+.glyph{display:block;background:#fff;-webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+body{display:flex;justify-content:center}
+.app{position:relative;width:100%;max-width:480px;height:100%;display:flex;flex-direction:column;overflow:hidden}
+
+/* ambient light */
+.ambient{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.ambient i{position:absolute;border-radius:50%;filter:blur(80px);will-change:transform}
+.ambient .a{width:340px;height:340px;top:-170px;right:-110px;background:#bcdcff;opacity:.75;animation:drift 18s ease-in-out infinite}
+.ambient .b{width:280px;height:280px;top:120px;left:-150px;background:#d8e9ff;opacity:.8;animation:drift 22s ease-in-out infinite reverse}
+@keyframes drift{50%{transform:translate(-30px,40px) scale(1.08)}}
+
+/* top bar */
+.top{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 22px 4px}
+.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(160deg,var(--blue2),var(--blue));display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,113,227,.35)}
+.mark .glyph{width:16px;height:16px}
+.status{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--mute);padding:6px 11px;border-radius:99px;background:rgba(255,255,255,.7);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 0 0 .5px var(--sep);transition:.4s}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--faint);transition:.4s}
+.status.on{color:var(--ok)}
+.status.on i{background:var(--ok)}
+
+/* views */
+main{position:relative;z-index:2;flex:1;overflow-y:auto;padding:6px 20px calc(env(safe-area-inset-bottom,0px) + 110px);scrollbar-width:none}
+main::-webkit-scrollbar{display:none}
+.view{display:none}
+.view.active{display:block;animation:viewIn .5s var(--ease) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.view.active .stagger{animation:viewIn .6s var(--ease) both}
+.view.active .stagger:nth-child(2){animation-delay:.05s}
+.view.active .stagger:nth-child(3){animation-delay:.1s}
+.view.active .stagger:nth-child(4){animation-delay:.15s}
+.view.active .stagger:nth-child(5){animation-delay:.2s}
+.view.active .stagger:nth-child(6){animation-delay:.25s}
+
+.title{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:14px 2px 6px}
+.lead{font-size:16px;line-height:1.4;color:var(--mute);margin:0 2px 18px;letter-spacing:-.01em}
+.cap{font-size:13px;color:var(--mute);margin:0 16px 8px;letter-spacing:-.005em}
+.foot{font-size:13px;color:var(--mute);margin:8px 16px 22px;line-height:1.4}
+
+/* segmented control */
+.seg{position:relative;display:flex;padding:3px;border-radius:13px;background:rgba(118,130,160,.16);margin-bottom:12px}
+.seg .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:10px;background:#fff;
+  box-shadow:0 2px 8px rgba(16,40,90,.14),0 0 0 .5px rgba(16,40,90,.04);transition:transform .45s var(--spring)}
+.seg button{position:relative;z-index:1;flex:1;border:0;background:none;padding:9px 0;font:600 14.5px/1.2 inherit;letter-spacing:-.01em;color:var(--mute);cursor:pointer;transition:color .3s}
+.seg button.active{color:var(--text)}
+.blurb{font-size:14px;color:var(--mute);margin:0 4px 18px;line-height:1.4;min-height:20px;transition:opacity .3s}
+
+/* license pass */
+.pass{position:relative;border-radius:26px;padding:22px 22px 20px;margin-bottom:22px;color:#fff;overflow:hidden;
+  background:linear-gradient(150deg,#3aa0ff 0%,#0a6cf0 55%,#0757c7 100%);
+  box-shadow:0 18px 40px -12px rgba(0,113,227,.55),0 2px 6px rgba(0,113,227,.25);
+  transition:filter .6s,background .6s}
+.pass::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.38),transparent 55%);pointer-events:none}
+.pass::after{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-18deg);animation:sheen 6s ease-in-out infinite}
+@keyframes sheen{55%,100%{left:140%}}
+.pass.off{background:linear-gradient(150deg,#c9d3e3,#a9b6cc 60%,#94a3bd);box-shadow:0 14px 30px -14px rgba(60,80,120,.45)}
+.pass-top{display:flex;justify-content:space-between;align-items:center;position:relative}
+.pass-brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.pass-brand .glyph{width:18px;height:18px}
+.pass-tier{font-size:11.5px;font-weight:600;letter-spacing:.04em;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.22);backdrop-filter:blur(8px)}
+.pass-big{position:relative;margin:30px 0 22px;font-size:28px;font-weight:700;letter-spacing:-.03em}
+.pass-bot{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pass-bot>div{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.pass-bot small{display:block;font-size:11px;opacity:.8;margin-bottom:3px;letter-spacing:.02em}
+.pass-bot b{font-size:15px;font-weight:600;letter-spacing:-.01em}
+
+/* identity row */
+.me{display:flex;align-items:center;gap:14px;margin:0 2px 22px}
+.ava{width:56px;height:56px;border-radius:50%;background:var(--sky) center/cover;display:grid;place-items:center;font-size:22px;font-weight:600;color:var(--blue);box-shadow:0 0 0 3px #fff,0 4px 14px rgba(16,40,90,.1);flex:none}
+.me b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em}
+.me span{font-size:14px;color:var(--mute)}
+
+/* grouped list */
+.group{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:8px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;position:relative;font-size:16px;letter-spacing:-.01em}
+.item+.item::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.item span{color:var(--text)}
+.item b{font-weight:400;color:var(--mute);font-size:15.5px}
+.item b.hi{color:var(--blue);font-weight:500}
+
+/* buttons */
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;font:600 17px/1.2 inherit;letter-spacing:-.01em;color:#fff;cursor:pointer;
+  background:linear-gradient(180deg,#1a85f2,#0071e3);box-shadow:0 8px 20px -8px rgba(0,113,227,.7);
+  transition:transform .35s var(--spring),opacity .25s,box-shadow .3s}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn.soft{background:var(--sky);color:var(--blue);box-shadow:none}
+.btn[disabled]{background:#dfe5ee;color:#9aa5b8;box-shadow:none;pointer-events:none}
+
+/* key field */
+.field{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:6px;margin-bottom:14px;transition:box-shadow .3s}
+.field:focus-within{box-shadow:0 0 0 3px rgba(0,113,227,.28),var(--shadow)}
+.field input{width:100%;border:0;outline:0;background:transparent;text-align:center;text-transform:uppercase;color:var(--text);
+  font:500 21px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.14em;padding:20px 10px}
+.field input::placeholder{color:#c4cad6}
+.field.err{animation:shake .4s;box-shadow:0 0 0 3px rgba(229,72,77,.25)}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
+/* plans */
+.plan{cursor:pointer;transition:background .2s}
+.plan:active{background:#f4f7fc}
+.plan .l{display:flex;flex-direction:column;gap:2px}
+.plan .l small{font-size:13.5px;color:var(--mute)}
+.plan .r{display:flex;align-items:center;gap:12px}
+.plan .price{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.radio{width:22px;height:22px;border-radius:50%;border:1.5px solid #c7cdd8;display:grid;place-items:center;transition:.3s var(--spring);flex:none}
+.radio svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transform:scale(0);transition:.3s var(--spring)}
+.plan.sel .radio{background:var(--blue);border-color:var(--blue)}
+.plan.sel .radio svg{transform:scale(1)}
+.badge{font-size:11px;font-weight:600;color:var(--blue);background:var(--sky);padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:2px;font-style:normal}
+#plans.swap{animation:swap .45s var(--ease)}
+@keyframes swap{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* download */
+.hero{text-align:center;padding:6px 0 22px}
+.app-ico{width:104px;height:104px;border-radius:27px;margin:0 auto 18px;display:grid;place-items:center;
+  background:linear-gradient(160deg,#4db0ff,#0a6cf0 65%,#0757c7);
+  box-shadow:0 20px 36px -12px rgba(0,113,227,.55),inset 0 1px 0 rgba(255,255,255,.4);animation:float 5s ease-in-out infinite}
+.app-ico svg{width:46px;height:46px;transition:opacity .25s}
+.app-ico .glyph{width:52px;height:52px}
+@keyframes float{50%{transform:translateY(-5px)}}
+.hero h3{font-size:24px;font-weight:700;letter-spacing:-.03em}
+.hero p{font-size:14.5px;color:var(--mute);margin-top:4px}
+.note{display:flex;align-items:center;gap:8px;justify-content:center;margin:14px 0 18px;font-size:14px;color:var(--mute);transition:.4s}
+.note svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.note.ok{color:var(--ok)}
+.prog{height:6px;border-radius:9px;background:#e3e9f3;overflow:hidden;margin:0 0 14px;display:none}
+.prog i{display:block;height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,var(--blue2),var(--blue));transition:width .2s linear}
+
+/* tab bar */
+nav{position:absolute;z-index:6;left:0;right:0;bottom:0;display:flex;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);
+  background:rgba(250,252,255,.78);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:.5px solid var(--sep)}
+nav button{flex:1;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 2px;
+  font:500 10.5px/1 inherit;color:#8e98ab;cursor:pointer;transition:color .3s}
+nav button svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .4s var(--spring)}
+nav button.active{color:var(--blue)}
+nav button.active svg{transform:scale(1.1)}
+
+/* toast */
+#toast{position:absolute;z-index:20;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translate(-50%,-90px);
+  padding:12px 20px;border-radius:99px;font-size:14.5px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;
+  background:rgba(255,255,255,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 10px 30px rgba(16,40,90,.16),0 0 0 .5px var(--sep);transition:transform .6s var(--spring)}
+#toast.show{transform:translate(-50%,0)}
+#toast.err{color:var(--err)}
+
+/* success sheet */
+.sheet{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(245,247,251,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);opacity:0;pointer-events:none;transition:opacity .35s}
+.sheet.show{opacity:1}
+.sheet .box{text-align:center;transform:scale(.9);transition:transform .6s var(--spring)}
+.sheet.show .box{transform:none}
+.sheet svg{width:92px;height:92px}
+.sheet circle{fill:none;stroke:var(--blue);stroke-width:3;stroke-dasharray:200;stroke-dashoffset:200}
+.sheet path{fill:none;stroke:var(--blue);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:60;stroke-dashoffset:60}
+.sheet.show circle{animation:draw .7s .1s var(--ease) forwards}
+.sheet.show path{animation:draw .45s .6s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.sheet b{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:14px}
+.sheet span{font-size:15px;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ambient"><i class="a"></i><i class="b"></i></div>
+
+  <div class="top">
+    <div class="brand">
+      <div class="mark"><i class="glyph"></i></div>
+      Zaetheron
+    </div>
+    <div class="status" id="status"><i></i><span id="statusTxt">Нет лицензии</span></div>
+  </div>
+
+  <main>
+    <!-- PROFILE -->
+    <section class="view active" id="v-profile">
+      <div class="me stagger">
+        <div class="ava" id="avatar">Z</div>
+        <div><b id="uName">Гость</b><span id="uTag">@username</span></div>
+      </div>
+
+      <div class="pass off stagger" id="pass">
+        <div class="pass-top">
+          <div class="pass-brand"><i class="glyph"></i>Zaetheron</div>
+          <div class="pass-tier" id="passTier">Free</div>
+        </div>
+        <div class="pass-big" id="passBig">Нет лицензии</div>
+        <div class="pass-bot">
+          <div><small>Приложение</small><b id="pApp">—</b></div>
+          <div><small>Custom OS</small><b id="pOs">—</b></div>
+        </div>
+      </div>
+
+      <div class="cap stagger">Аккаунт</div>
+      <div class="group stagger">
+        <div class="item"><span>Telegram ID</span><b id="uId">—</b></div>
+        <div class="item"><span>Приложение</span><b id="uApp">Не активно</b></div>
+        <div class="item"><span>Custom OS</span><b id="uOs">Не активно</b></div>
+        <div class="item"><span>Загрузки</span><b id="sDl">0</b></div>
+      </div>
+      <div style="margin-top:18px" class="stagger"><button class="btn" data-go="key">Активировать ключ</button></div>
+    </section>
+
+    <!-- KEY -->
+    <section class="view" id="v-key">
+      <h1 class="title stagger">Активация</h1>
+      <p class="lead stagger">Введите ключ, который бот отправил после оплаты. Продукт определится автоматически.</p>
+      <div class="field stagger" id="field"><input id="keyInput" maxlength="18" value="ZTH-" placeholder="ZTH-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+      <div class="stagger"><button class="btn" id="btnActivate">Активировать</button></div>
+      <p class="foot stagger" style="text-align:center;margin-top:18px">Нет ключа? Выберите продукт и тариф в магазине — ключ придёт в чат с ботом.</p>
+      <div class="stagger"><button class="btn soft" data-go="shop">Открыть магазин</button></div>
+    </section>
+
+    <!-- SHOP -->
+    <section class="view" id="v-shop">
+      <h1 class="title stagger">Магазин</h1>
+      <p class="lead stagger" style="margin-bottom:14px">Выберите продукт и срок доступа.</p>
+      <div class="stagger">
+        <div class="seg" data-seg><i class="thumb"></i><button data-p="app">Приложение</button><button data-p="os">Custom OS</button></div>
+        <p class="blurb" id="blurb"></p>
+      </div>
+      <div class="group stagger" id="plans"></div>
+      <p class="foot stagger">Оплата проходит через бота. Лицензия привязывается к вашему Telegram-аккаунту.</p>
+      <div class="stagger"><button class="btn" id="btnBuy">Купить</button></div>
+    </section>
+
+    <!-- DOWNLOAD -->
+    <section class="view" id="v-dl">
+      <div class="stagger" style="margin-top:12px"><div class="seg" data-seg><i class="thumb"></i><button data-p="app">Приложение</button><button data-p="os">Custom OS</button></div></div>
+      <div class="hero stagger">
+        <div class="app-ico"><i id="dlGlyph" class="glyph"></i><svg id="dlIco" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></svg></div>
+        <h3 id="dlTitle">Zaetheron для Windows</h3>
+        <p id="dlVer">Версия 1.0.0 · 64-bit</p>
+      </div>
+      <div class="note stagger" id="note">
+        <svg viewBox="0 0 24 24" id="noteIco"></svg>
+        <span id="noteTxt">Для загрузки нужен активный ключ</span>
+      </div>
+      <div class="prog stagger" id="prog"><i id="progI"></i></div>
+      <div class="stagger"><button class="btn" id="btnDl" disabled>Скачать</button></div>
+      <div class="cap stagger" style="margin-top:26px">Требования</div>
+      <div class="group stagger" id="reqs"></div>
+    </section>
+  </main>
+
+  <nav>
+    <button class="active" data-go="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/></svg>Профиль</button>
+    <button data-go="key"><svg viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="4"/><path d="M11 12.5 20 3.5M16 7.5l3 3M14 9.5l2 2"/></svg>Ключ</button>
+    <button data-go="shop"><svg viewBox="0 0 24 24"><path d="M5.5 8h13l-1.2 11.5h-10.6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Магазин</button>
+    <button data-go="dl"><svg viewBox="0 0 24 24"><path d="M12 3.5v11.5M7.5 11 12 15.5 16.5 11M4.5 20h15"/></svg>Загрузка</button>
+  </nav>
+
+  <div id="toast"></div>
+  <div class="sheet" id="sheet"><div class="box">
+    <svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="40"/><path d="M28 47l12 12 24-26"/></svg>
+    <b>Лицензия активирована</b><span id="sheetSub">Загрузка доступна</span>
+  </div></div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const CONFIG = {
+  api: "/api/verify",      // POST {key, init_data} -> {ok, product, plan, days, expires_at, download_url}
+  buyApi: "/buy",          // POST {product, plan, init_data}: сервер выставляет счёт в чат с ботом
+  plans: [
+    {id:"1d", name:"1 день",  desc:"Попробовать",  days:1},
+    {id:"3d", name:"3 дня",   desc:"Оптимально",   days:3, tag:"Выбор"},
+    {id:"7d", name:"7 дней",  desc:"Максимум",     days:7}
+  ],
+  products: {
+    app: {
+      name:"Приложение", title:"Zaetheron для Windows", ver:"Версия 1.0.0 · 64-bit",
+      blurb:"Утилита для Windows: оптимизация и настройка системы.",
+      prices:{"1d":"399 ₽","3d":"699 ₽","7d":"1 299 ₽"},
+      downloadUrl:"",                                           // FILL: installer link
+      reqs:[["Система","Windows 10 / 11"],["Архитектура","x64"],["Размер","≈ 48 МБ"],["Права","Администратор"]], // FILL
+      icon:'<path d="M5 5h14L5 19h14"/>'
+    },
+    os: {
+      name:"Custom OS", title:"Zaetheron Custom OS", ver:"Версия 1.0.0 · оболочка",
+      blurb:"Игровая оболочка поверх Windows 11: игровое меню, быстрый запуск, буст.",
+      prices:{"1d":"539 ₽","3d":"944 ₽","7d":"1 754 ₽"},       // app price × 1.35, rounded
+      downloadUrl:"",                                           // FILL: installer link
+      reqs:[["Система","Windows 11"],["Архитектура","x64"],["Размер","≈ 120 МБ"],["Права","Администратор"]], // FILL
+      icon:'<rect x="3.5" y="4.5" width="17" height="12" rx="2.5"/><path d="M8.5 20h7M12 16.5V20"/>'
+    }
+  }
+};
+
+/* ================= TELEGRAM ================= */
+const tg = window.Telegram?.WebApp;
+if (tg){ tg.ready(); tg.expand(); try{tg.setHeaderColor("#f5f7fb");tg.setBackgroundColor("#f5f7fb");tg.setBottomBarColor&&tg.setBottomBarColor("#fafcff");}catch(e){} }
+const user = tg?.initDataUnsafe?.user || {id:0, first_name:"Гость", username:""};
+const haptic = (t="light")=>{ try{tg?.HapticFeedback?.impactOccurred(t)}catch(e){} };
+const notif  = (t)=>{ try{tg?.HapticFeedback?.notificationOccurred(t)}catch(e){} };
+
+/* ================= STATE ================= */
+const $ = s=>document.querySelector(s), $$ = s=>[...document.querySelectorAll(s)];
+const blank = {lic:{app:null,os:null},dl:{app:0,os:0}};
+let state = JSON.parse(localStorage.getItem("zth_state_v2")||JSON.stringify(blank));
+const save = ()=>localStorage.setItem("zth_state_v2",JSON.stringify(state));
+const isOn = p=>!!state.lic[p] && state.lic[p].exp>Date.now();
+const anyOn = ()=>isOn("app")||isOn("os");
+function left(p){
+  if(!isOn(p)) return null;
+  const ms=state.lic[p].exp-Date.now();
+  return ms>=864e5 ? Math.ceil(ms/864e5)+" дн." : Math.max(1,Math.ceil(ms/36e5))+" ч.";
+}
+
+let prod="app", selPlan="3d";
+
+/* ================= UI ================= */
+function toast(msg,err){
+  const t=$("#toast"); t.textContent=msg; t.className=(err?"err ":"")+"show";
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.className=err?"err":"",2400);
+}
+function render(){
+  const on=anyOn(), P=CONFIG.products[prod];
+  $("#uName").textContent=[user.first_name,user.last_name].filter(Boolean).join(" ")||"Гость";
+  $("#uTag").textContent=user.username?("@"+user.username):"Telegram";
+  $("#uId").textContent=user.id||"—";
+  if(user.photo_url){ $("#avatar").style.backgroundImage=`url(${user.photo_url})`; $("#avatar").textContent=""; }
+  else $("#avatar").textContent=(user.first_name||"Z")[0].toUpperCase();
+
+  $("#status").classList.toggle("on",on);
+  $("#statusTxt").textContent=on?"Лицензия активна":"Нет лицензии";
+  $("#pass").classList.toggle("off",!on);
+  $("#passTier").textContent=on?"Premium":"Free";
+  $("#passBig").textContent=on?"Лицензия активна":"Нет лицензии";
+  $("#pApp").textContent=left("app")||"—";
+  $("#pOs").textContent=left("os")||"—";
+  $("#uApp").textContent=left("app")?("Осталось "+left("app")):"Не активно";
+  $("#uOs").textContent=left("os")?("Осталось "+left("os")):"Не активно";
+  $("#uApp").classList.toggle("hi",isOn("app")); $("#uOs").classList.toggle("hi",isOn("os"));
+  $("#sDl").textContent=state.dl.app+state.dl.os;
+
+  // download view for selected product
+  $("#dlTitle").textContent=P.title; $("#dlVer").textContent=P.ver;
+  $("#dlIco").innerHTML=P.icon;
+  $("#dlGlyph").style.display=prod==="app"?"block":"none"; $("#dlIco").style.display=prod==="app"?"none":"";
+  $("#reqs").innerHTML=P.reqs.map(r=>`<div class="item"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+  const ok=isOn(prod);
+  $("#btnDl").disabled=!ok||!state.lic[prod]?.url;
+  $("#note").classList.toggle("ok",ok);
+  $("#noteTxt").textContent=ok?("Лицензия подтверждена · осталось "+left(prod)):"Для загрузки нужен активный ключ";
+  $("#noteIco").innerHTML=ok?'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>':'<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>';
+  $("#blurb").textContent=P.blurb;
+}
+
+/* ---- product switch (shared by shop + download) ---- */
+function setProd(p,silent){
+  prod=p; if(!silent) haptic();
+  $$(".seg").forEach(s=>{
+    const btns=[...s.querySelectorAll("button")], i=btns.findIndex(b=>b.dataset.p===p);
+    btns.forEach(b=>b.classList.toggle("active",b.dataset.p===p));
+    s.querySelector(".thumb").style.transform=`translateX(${i*100}%)`;
+  });
+  drawPlans(true); render();
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".seg button"); if(b) setProd(b.dataset.p);
+});
+
+/* ---- navigation ---- */
+function go(name){
+  haptic();
+  $$(".view").forEach(v=>v.classList.remove("active"));
+  $("#v-"+name).classList.add("active");
+  $$("nav button").forEach(b=>b.classList.toggle("active",b.dataset.go===name));
+  $("main").scrollTo({top:0});
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b) go(b.dataset.go); });
+
+/* ---- key activation ---- */
+const ki=$("#keyInput");
+ki.addEventListener("input",()=>{
+  const body=ki.value.toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^ZTH/,"").slice(0,12);
+  ki.value="ZTH-"+(body.match(/.{1,4}/g)||[]).join("-");
+  $("#field").classList.remove("err");
+});
+async function verifyKey(key){
+  const r=await fetch(CONFIG.api,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({key,init_data:tg?.initData||""})});
+  const data=await r.json().catch(()=>({}));
+  return r.ok ? data : {ok:false, status:r.status, detail:data.detail||""};
+}
+function shakeField(){ const f=$("#field"); f.classList.remove("err"); void f.offsetWidth; f.classList.add("err"); }
+$("#btnActivate").onclick=async()=>{
+  const key=ki.value.trim(), b=$("#btnActivate");
+  if(key.length!==18){ shakeField(); notif("error"); return toast("Введите ключ полностью",true); }
+  b.disabled=true; b.textContent="Проверка…";
+  try{
+    const res=await verifyKey(key);
+    if(res.ok && CONFIG.products[res.product]){
+      const cur=state.lic[res.product], exp=res.expires_at*1000;
+      state.lic[res.product]={key,plan:res.plan,exp:isOn(res.product)?Math.max(exp,cur.exp):exp,url:res.download_url||""};
+      save(); ki.value="ZTH-"; notif("success");
+      setProd(res.product,true);
+      $("#sheetSub").textContent=CONFIG.products[res.product].name+" · "+res.plan;
+      const s=$("#sheet"); s.classList.add("show");
+      setTimeout(()=>{ s.classList.remove("show"); go("dl"); },1900);
+    }else{ shakeField(); notif("error"); toast(res.detail||"Неверный или уже использованный ключ",true); }
+  }catch(e){ toast("Ошибка сервера. Попробуйте позже",true); }
+  b.disabled=false; b.textContent="Активировать";
+};
+
+/* ---- shop ---- */
+function drawPlans(animate){
+  const P=CONFIG.products[prod], el=$("#plans");
+  el.innerHTML=CONFIG.plans.map(p=>`
+    <div class="item plan ${p.id===selPlan?"sel":""}" data-plan="${p.id}">
+      <div class="l"><span>${p.name}${p.tag?`<em class="badge">${p.tag}</em>`:""}</span><small>${p.desc}</small></div>
+      <div class="r"><div class="price">${P.prices[p.id]}</div>
+        <div class="radio"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div></div>
+    </div>`).join("");
+  if(animate){ el.classList.remove("swap"); void el.offsetWidth; el.classList.add("swap"); }
+}
+$("#plans").addEventListener("click",e=>{
+  const p=e.target.closest(".plan"); if(!p) return; haptic(); selPlan=p.dataset.plan; drawPlans();
+});
+$("#btnBuy").onclick=async()=>{
+  const b=$("#btnBuy"); b.disabled=true; b.textContent="Отправляем счёт…";
+  try{
+    const r=await fetch(CONFIG.buyApi,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({product:prod,plan:selPlan,init_data:tg?.initData||""})});
+    const data=await r.json().catch(()=>({}));
+    if(r.ok && data.ok){ notif("success"); toast("Счёт отправлен в чат с ботом"); setTimeout(()=>tg?.close?.(),900); }
+    else toast(data.detail||"Не удалось создать счёт",true);
+  }catch(e){ toast("Ошибка сети. Попробуйте позже",true); }
+  b.disabled=false; b.textContent="Купить";
+};
+
+/* ---- download ---- */
+$("#btnDl").onclick=()=>{
+  if(!isOn(prod)) return;
+  const P=CONFIG.products[prod], bar=$("#prog"),fill=$("#progI"),b=$("#btnDl"); let p=0;
+  bar.style.display="block"; b.disabled=true; b.textContent="Подготовка…";
+  const t=setInterval(()=>{
+    p+=Math.random()*14+4; fill.style.width=Math.min(p,100)+"%";
+    if(p>=100){
+      clearInterval(t); state.dl[prod]++; save(); render(); notif("success");
+      b.textContent="Скачать ещё раз"; b.disabled=!isOn(prod); toast("Загрузка готова");
+      const url=state.lic[prod]?.url; if(url){ tg?.openLink?tg.openLink(url):window.open(url,"_blank"); }
+      setTimeout(()=>{bar.style.display="none";fill.style.width="0"},900);
+    }
+  },150);
+};
+
+async function refreshLicenses(){
+  for(const p of Object.keys(CONFIG.products)){
+    const L=state.lic[p]; if(!L) continue;
+    try{
+      const res=await verifyKey(L.key);
+      if(res.ok){ L.exp=res.expires_at*1000; L.url=res.download_url||""; }
+      else if(res.status>=400 && res.status<500){ state.lic[p]=null; }  // отозван, истёк или ключа больше нет
+    }catch(e){}                                                          // нет сети: оставляем сохранённое
+  }
+  save(); render();
+}
+setProd("app",true);
+refreshLicenses();
+setInterval(render,60000);   // keep remaining time fresh
+</script>
+</body>
+</html>
