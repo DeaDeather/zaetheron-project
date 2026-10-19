@@ -14,7 +14,7 @@ Zaetheron Industry — Telegram-бот.
 
 Платёжный токен (PAYMENT_PROVIDER_TOKEN) задаётся только в key_server.py, боту он не нужен.
 
-Файлы bot.py, keyvault.py и key_server.py должны лежать в одной папке.
+Файлы bot.py, legal.py, keyvault.py и key_server.py должны лежать в одной папке.
 
 Запуск локально (Windows):
     py -m pip install aiogram psycopg2-binary cryptography
@@ -35,6 +35,10 @@ Zaetheron Industry — Telegram-бот.
     /start                        — открыть мини-апп
     /mykey                        — показать свой ключ, статус, срок действия
     /support ТЕКСТ                — отправить обращение в поддержку (видно только админу)
+    /terms                        — Пользовательское соглашение
+    /privacy                      — Политика конфиденциальности
+
+Тексты документов лежат в legal.py (рядом с bot.py). Принятие условий пишется в таблицу consents.
 """
 import asyncio
 import logging
@@ -49,6 +53,8 @@ import psycopg2.extras
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
+    BotCommand,
+    CallbackQuery,
     Message,
     PreCheckoutQuery,
     InlineKeyboardMarkup,
@@ -58,6 +64,7 @@ from aiogram.types import (
 )
 
 import keyvault
+import legal
 
 logging.basicConfig(level=logging.INFO)
 
@@ -78,7 +85,10 @@ WELCOME_TEXT = (
     "Тарифы, статус ключа и скачивание — в мини-приложении ниже.\n\n"
     "Команды:\n"
     "/mykey — посмотреть свой ключ и его статус\n"
-    "/support ТЕКСТ — написать в поддержку"
+    "/support ТЕКСТ — написать в поддержку\n"
+    "/terms — пользовательское соглашение\n"
+    "/privacy — политика конфиденциальности\n\n"
+    "Пользуясь ботом, вы принимаете условия соглашения и политики."
 )
 
 
@@ -90,22 +100,126 @@ def is_admin(message: Message) -> bool:
     return message.from_user.id == ADMIN_CHAT_ID
 
 
-def webapp_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(text="Открыть Zaetheron Industry", web_app=WebAppInfo(url=WEBAPP_URL))
-        ]]
-    )
+def webapp_keyboard(with_legal: bool = False) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="Открыть Zaetheron Industry", web_app=WebAppInfo(url=WEBAPP_URL))]]
+    if with_legal:
+        rows += legal_rows()
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def legal_rows() -> list:
+    return [
+        [InlineKeyboardButton(text="📄 Пользовательское соглашение", callback_data="legal:terms")],
+        [InlineKeyboardButton(text="🔒 Политика конфиденциальности", callback_data="legal:privacy")],
+    ]
 
 
 @dp.message(CommandStart())
 async def start(message: Message):
+    keyboard = webapp_keyboard(with_legal=True)
     if os.path.exists(BANNER_PATH):
-        await message.answer_photo(
-            FSInputFile(BANNER_PATH), caption=WELCOME_TEXT, reply_markup=webapp_keyboard()
-        )
+        await message.answer_photo(FSInputFile(BANNER_PATH), caption=WELCOME_TEXT, reply_markup=keyboard)
     else:
-        await message.answer(WELCOME_TEXT, reply_markup=webapp_keyboard())
+        await message.answer(WELCOME_TEXT, reply_markup=keyboard)
+
+
+# ---------- Пользовательское соглашение и политика конфиденциальности ----------
+
+def has_consent(user_id: int) -> bool:
+    if not DATABASE_URL:
+        return False
+    with closing(db()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM consents WHERE telegram_id = %s AND doc_version = %s",
+                (user_id, legal.DOC_VERSION),
+            )
+            return cur.fetchone() is not None
+
+
+def record_consent(user_id: int) -> None:
+    with closing(db()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO consents (telegram_id, doc_version, accepted_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (user_id, legal.DOC_VERSION, int(time.time())),
+            )
+        conn.commit()
+
+
+async def send_doc(user_id: int, key: str):
+    """Отправляет документ частями. К последней части добавляет кнопки."""
+    chunks = legal.doc_chunks(key)
+    for chunk in chunks[:-1]:
+        await bot.send_message(user_id, chunk, parse_mode="HTML", disable_web_page_preview=True)
+
+    accepted = False
+    if DATABASE_URL:
+        try:
+            accepted = await asyncio.to_thread(has_consent, user_id)
+        except Exception:
+            logging.exception("Не удалось проверить принятие условий")
+
+    rows = []
+    if DATABASE_URL and not accepted:
+        rows.append([InlineKeyboardButton(text="✅ Принимаю условия", callback_data="legal_accept")])
+    other = "privacy" if key == "terms" else "terms"
+    other_title = "🔒 Политика конфиденциальности" if other == "privacy" else "📄 Пользовательское соглашение"
+    rows.append([InlineKeyboardButton(text=other_title, callback_data=f"legal:{other}")])
+    rows.append([InlineKeyboardButton(text="Открыть Zaetheron Industry", web_app=WebAppInfo(url=WEBAPP_URL))])
+
+    footer = chunks[-1]
+    if accepted:
+        footer += "\n\n✅ Вы уже приняли эту редакцию условий."
+    await bot.send_message(
+        user_id, footer, parse_mode="HTML", disable_web_page_preview=True,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+
+
+@dp.message(Command("terms"))
+async def terms_cmd(message: Message):
+    await send_doc(message.from_user.id, "terms")
+
+
+@dp.message(Command("privacy"))
+async def privacy_cmd(message: Message):
+    await send_doc(message.from_user.id, "privacy")
+
+
+@dp.callback_query(F.data.startswith("legal:"))
+async def legal_open(call: CallbackQuery):
+    key = call.data.split(":", 1)[1]
+    if key not in legal.DOCS:
+        await call.answer()
+        return
+    await call.answer()
+    await send_doc(call.from_user.id, key)
+
+
+@dp.callback_query(F.data == "legal_accept")
+async def legal_accept(call: CallbackQuery):
+    if not DATABASE_URL:
+        await call.answer("Сервис временно недоступен, попробуйте позже.", show_alert=True)
+        return
+    try:
+        await asyncio.to_thread(record_consent, call.from_user.id)
+    except Exception:
+        logging.exception("Не удалось записать принятие условий")
+        await call.answer("Не удалось сохранить, попробуйте ещё раз.", show_alert=True)
+        return
+    await call.answer("Условия приняты ✅")
+    try:
+        # убираем кнопку «Принимаю», остальные оставляем
+        old = call.message.reply_markup.inline_keyboard if call.message and call.message.reply_markup else []
+        rows = [r for r in old if not any(b.callback_data == "legal_accept" for b in r)]
+        await call.message.edit_reply_markup(reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    except Exception:
+        pass
 
 
 def ensure_schema():
@@ -121,6 +235,16 @@ def ensure_schema():
                 CREATE TABLE IF NOT EXISTS key_history (
                     key_hash  TEXT PRIMARY KEY,
                     issued_at BIGINT NOT NULL
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS consents (
+                    telegram_id BIGINT NOT NULL,
+                    doc_version TEXT   NOT NULL,
+                    accepted_at BIGINT NOT NULL,
+                    PRIMARY KEY (telegram_id, doc_version)
                 )
                 """
             )
@@ -589,7 +713,7 @@ async def successful_payment(message: Message):
         f"Ключ: {key}\n"
         f"Срок: {days} дн., до {expires_text}\n\n"
         "Активировать можно в мини-приложении или командой /mykey.",
-        reply_markup=webapp_keyboard(),
+        reply_markup=webapp_keyboard(with_legal=True),
     )
     await bot.send_message(
         ADMIN_CHAT_ID,
@@ -611,6 +735,13 @@ async def main():
             )
         await asyncio.to_thread(ensure_schema)
         asyncio.create_task(cleanup_expired_loop())
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Открыть Zaetheron"),
+        BotCommand(command="mykey", description="Мой ключ и статус"),
+        BotCommand(command="support", description="Написать в поддержку"),
+        BotCommand(command="terms", description="Пользовательское соглашение"),
+        BotCommand(command="privacy", description="Политика конфиденциальности"),
+    ])
     # снимаем вебхук, иначе getUpdates отдаёт TelegramConflictError
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
