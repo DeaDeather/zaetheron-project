@@ -180,6 +180,34 @@ nav button.active svg{transform:scale(1.1)}
 @keyframes draw{to{stroke-dashoffset:0}}
 .sheet b{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:14px}
 .sheet span{font-size:15px;color:var(--mute)}
+
+/* legal: documents, consent banner */
+.item.link{cursor:pointer;transition:background .2s}
+.item.link:active{background:#f4f7fc}
+.chev{width:16px;height:16px;stroke:#c1c7d3;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.foot a,.consent a{color:var(--blue);cursor:pointer;font-weight:500}
+.back{display:inline-flex;align-items:center;gap:2px;border:0;background:none;color:var(--blue);font-weight:500;font-size:16px;font-family:inherit;padding:8px 6px 8px 0;margin-left:-4px;cursor:pointer;letter-spacing:-.01em}
+.back svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.dseg{position:relative;display:flex;padding:3px;border-radius:13px;background:rgba(118,130,160,.16);margin-bottom:14px}
+.dseg .thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:10px;background:#fff;
+  box-shadow:0 2px 8px rgba(16,40,90,.14),0 0 0 .5px rgba(16,40,90,.04);transition:transform .45s var(--spring)}
+.dseg button{position:relative;z-index:1;flex:1;border:0;background:none;padding:9px 0;font-weight:600;font-size:14.5px;font-family:inherit;letter-spacing:-.01em;color:var(--mute);cursor:pointer;transition:color .3s}
+.dseg button.active{color:var(--text)}
+.doc-sec{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:16px 18px 6px;margin-bottom:10px}
+.doc-sec h4{font-size:16px;font-weight:600;letter-spacing:-.015em;margin-bottom:8px}
+.doc-sec p{font-size:14.5px;line-height:1.5;color:#3a3a3d;margin-bottom:10px;letter-spacing:-.005em}
+.doc-sec p.li{padding-left:14px;text-indent:-14px}
+#legalBody.swap{animation:swap .45s var(--ease)}
+.consent{position:absolute;z-index:7;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);display:flex;align-items:center;gap:12px;
+  padding:12px 12px 12px 16px;border-radius:20px;background:rgba(255,255,255,.9);
+  backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);
+  box-shadow:0 12px 34px rgba(16,40,90,.18),0 0 0 .5px var(--sep);
+  transform:translateY(24px);opacity:0;pointer-events:none;transition:transform .6s var(--spring),opacity .3s}
+.consent.show{transform:none;opacity:1;pointer-events:auto}
+.consent .c-txt{flex:1;font-size:12.5px;line-height:1.35;color:var(--mute)}
+.consent .btn{width:auto;flex:none;padding:11px 16px;font-size:15px;border-radius:13px}
+.consent.nudge{animation:shake .4s}
+.app.needs main{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 190px)}
 </style>
 </head>
 <body>
@@ -222,6 +250,13 @@ nav button.active svg{transform:scale(1.1)}
         <div class="item"><span>Загрузки</span><b id="sDl">0</b></div>
       </div>
       <div style="margin-top:18px" class="stagger"><button class="btn" data-go="key">Активировать ключ</button></div>
+
+      <div class="cap stagger" style="margin-top:26px">Документы</div>
+      <div class="group stagger">
+        <div class="item link" data-doc="terms"><span>Пользовательское соглашение</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>
+        <div class="item link" data-doc="privacy"><span>Политика конфиденциальности</span><svg class="chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>
+      </div>
+      <p class="foot stagger" id="agreeNote"></p>
     </section>
 
     <!-- KEY -->
@@ -232,6 +267,7 @@ nav button.active svg{transform:scale(1.1)}
       <div class="stagger"><button class="btn" id="btnActivate">Активировать</button></div>
       <p class="foot stagger" style="text-align:center;margin-top:18px">Нет ключа? Выберите продукт и тариф в магазине — ключ придёт в чат с ботом.</p>
       <div class="stagger"><button class="btn soft" data-go="shop">Открыть магазин</button></div>
+      <p class="foot stagger" style="text-align:center;margin-top:16px">Активируя ключ, вы принимаете <a data-doc="terms">Пользовательское соглашение</a> и <a data-doc="privacy">Политику конфиденциальности</a>.</p>
     </section>
 
     <!-- SHOP -->
@@ -243,7 +279,7 @@ nav button.active svg{transform:scale(1.1)}
         <p class="blurb" id="blurb"></p>
       </div>
       <div class="group stagger" id="plans"></div>
-      <p class="foot stagger">Оплата проходит через бота. Лицензия привязывается к вашему Telegram-аккаунту.</p>
+      <p class="foot stagger">Оплата проходит через бота. Лицензия привязывается к вашему Telegram-аккаунту. Нажимая «Купить», вы принимаете <a data-doc="terms">Пользовательское соглашение</a> и <a data-doc="privacy">Политику конфиденциальности</a>.</p>
       <div class="stagger"><button class="btn" id="btnBuy">Купить</button></div>
     </section>
 
@@ -264,6 +300,16 @@ nav button.active svg{transform:scale(1.1)}
       <div class="cap stagger" style="margin-top:26px">Требования</div>
       <div class="group stagger" id="reqs"></div>
     </section>
+
+    <!-- LEGAL -->
+    <section class="view" id="v-legal">
+      <div class="stagger" style="margin-top:6px"><button class="back" id="legalBack"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Назад</button></div>
+      <h1 class="title stagger" id="legalTitle" style="margin-top:4px"></h1>
+      <p class="lead stagger" id="legalDate" style="margin-bottom:14px"></p>
+      <div class="stagger"><div class="dseg" id="dseg"><i class="thumb"></i><button data-d="terms">Соглашение</button><button data-d="privacy">Политика</button></div></div>
+      <div id="legalBody"></div>
+      <div class="stagger" id="legalAcceptWrap" style="margin-top:8px"><button class="btn" id="btnAccept">Принимаю условия</button></div>
+    </section>
   </main>
 
   <nav>
@@ -272,6 +318,11 @@ nav button.active svg{transform:scale(1.1)}
     <button data-go="shop"><svg viewBox="0 0 24 24"><path d="M5.5 8h13l-1.2 11.5h-10.6z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>Магазин</button>
     <button data-go="dl"><svg viewBox="0 0 24 24"><path d="M12 3.5v11.5M7.5 11 12 15.5 16.5 11M4.5 20h15"/></svg>Загрузка</button>
   </nav>
+
+  <div class="consent" id="consent">
+    <div class="c-txt">Продолжая, вы принимаете <a data-doc="terms">Пользовательское соглашение</a> и <a data-doc="privacy">Политику конфиденциальности</a></div>
+    <button class="btn" id="btnConsent">Принимаю</button>
+  </div>
 
   <div id="toast"></div>
   <div class="sheet" id="sheet"><div class="box">
@@ -384,6 +435,50 @@ document.addEventListener("click",e=>{
   const b=e.target.closest(".seg button"); if(b) setProd(b.dataset.p);
 });
 
+/* ================= LEGAL ================= */
+const LEGAL = {"version": "2026-10-19", "date": "19 октября 2026 г.", "terms": {"title": "Пользовательское соглашение", "sections": [["1. Общие положения", "Это соглашение между Zaetheron Industry (далее Правообладатель) и вами (далее Пользователь). Оно действует для программы Zaetheron для Windows, игровой оболочки Zaetheron Custom OS, Telegram-бота и мини-приложения Zaetheron (вместе Сервисы).\nПользоваться Сервисами можно, только если вы согласны с этими условиями. Если не согласны, не используйте Сервисы.\nВам должно быть 18 лет. Если вам меньше, пользоваться Сервисами можно только с согласия родителей или законного представителя."], ["2. Что вы получаете", "Покупая ключ, вы получаете ограниченную, неисключительную и непередаваемую лицензию на использование выбранного продукта на срок тарифа (1, 3 или 7 дней).\nПрограмма не продаётся, вы получаете только право ей пользоваться. Исходный код и все права на Сервисы остаются у Правообладателя.\nАктуальные цены и тарифы показаны в мини-приложении. Состав функций может меняться."], ["3. Ключи и привязка к устройству", "• Ключ имеет вид ZTH-XXXX-XXXX-XXXX и привязывается к вашему Telegram-аккаунту.\n• При первой активации ключ привязывается к устройству (HWID). Один ключ работает на одном устройстве.\n• Количество сбросов привязки у каждого ключа ограничено. Сбросить привязку можно через поддержку командой /support.\n• Ключ нельзя передавать, продавать, публиковать или давать другим людям. За действия с вашим ключом отвечаете вы.\n• Когда срок ключа заканчивается, доступ к продукту прекращается, а сам ключ автоматически удаляется из базы."], ["4. Оплата и возврат", "Оплата проходит через Telegram Payments в рублях. Платёж обрабатывают Telegram и платёжный провайдер, Правообладатель данные вашей банковской карты не получает.\nПосле успешной оплаты бот сам выдаёт ключ в личные сообщения. Если ключ не пришёл, напишите в поддержку: /support.\nВозврат средств возможен, если ключ не был выдан по вине Правообладателя или продукт невозможно запустить из-за технической ошибки, которую не удалось исправить. После выдачи ключа и начала использования возврат не делается, кроме случаев, когда его требует закон."], ["5. Что запрещено", "• Обходить проверку лицензии, привязку к устройству или другие защитные механизмы.\n• Взламывать, декомпилировать, изменять программу и копировать её части, если закон прямо не разрешает этого.\n• Распространять программу, ключи и материалы Сервисов, перепродавать доступ.\n• Использовать Сервисы для нарушения закона или чужих прав.\n• Мешать работе бота, мини-приложения и серверов, в том числе массовыми запросами и подбором ключей.\nЗа нарушение Правообладатель может отозвать ключ без возврата денег."], ["6. Изменения в системе и риски", "Zaetheron оптимизирует и настраивает Windows: может менять параметры системы, служб, электропитания и другие настройки. Custom OS добавляет игровую оболочку поверх Windows 11. Для работы нужны права администратора.\nПеред использованием рекомендуем создать точку восстановления Windows и сохранить важные данные.\nРезультат зависит от вашего компьютера и игр. Правообладатель не обещает конкретный прирост FPS или скорости. Антивирусы иногда ошибочно реагируют на программы, которые меняют настройки системы, это не всегда означает угрозу."], ["7. Ответственность", "Сервисы предоставляются как есть. Правообладатель старается, чтобы всё работало стабильно, но не гарантирует отсутствие ошибок и перерывов в работе.\nВ пределах, которые допускает закон, Правообладатель не отвечает за косвенные убытки, потерю данных и упущенную выгоду, а общая ответственность ограничена суммой, которую вы заплатили за ключ.\nВы используете Сервисы на свой риск и сами отвечаете за состояние своего компьютера."], ["8. Поддержка", "По любым вопросам пишите в боте: /support ваш текст. Ответ придёт в этот же чат."], ["9. Изменение условий", "Правообладатель может обновлять соглашение. Новая редакция появляется в боте и мини-приложении с новой датой. Если вы продолжаете пользоваться Сервисами после обновления, это значит, что вы согласны с новой редакцией. Бот и мини-приложение могут попросить вас принять условия заново."], ["10. Принятие и споры", "Вы принимаете соглашение, когда нажимаете кнопку Принимаю, активируете ключ, оплачиваете тариф или иным образом пользуетесь Сервисами.\nСпоры стороны сначала пытаются решить переговорами через поддержку. Если договориться не получилось, спор решается в порядке, который установлен законодательством страны Правообладателя."]]}, "privacy": {"title": "Политика конфиденциальности", "sections": [["1. Кто мы", "Оператор данных: Zaetheron Industry. Эта политика объясняет, какие данные нужны Сервисам Zaetheron (программа для Windows, Custom OS, Telegram-бот и мини-приложение), зачем они нужны и как мы с ними обращаемся.\nСвязаться с нами можно через бота: /support."], ["2. Какие данные мы получаем", "Из Telegram: ваш Telegram ID, имя, фамилия (если указана), username. Фото профиля мини-приложение показывает только в вашем интерфейсе. Мини-приложение отправляет на сервер подписанные данные запуска Telegram, чтобы сервер мог проверить, что запрос пришёл от вашего аккаунта.\nДанные лицензии: ключ, продукт, срок действия, статус, привязка к вашему Telegram ID, идентификатор устройства (HWID), число активаций и оставшихся сбросов привязки.\nДанные оплаты: номер платежа Telegram, ваш Telegram ID, продукт, тариф, сумма, валюта и дата. Номер банковской карты и другие платёжные реквизиты мы не получаем и не храним, их обрабатывает Telegram и платёжный провайдер.\nОбращения в поддержку: текст сообщения, ваше имя, username и Telegram ID. Они пересылаются администратору в Telegram и не записываются в нашу базу данных.\nТехнические данные: серверы и хостинг могут фиксировать IP-адрес, время и тип запроса в служебных журналах.\nПриложение для Windows при активации и проверке лицензии передаёт на сервер ключ и идентификатор устройства. Мы не собираем ваши личные файлы, пароли, переписки и содержимое экрана."], ["3. Что хранится на вашем устройстве", "Мини-приложение сохраняет на вашем устройстве сведения об активированных лицензиях (ключ, тариф, срок), счётчик загрузок и отметку о принятии условий. Эти данные нужны, чтобы интерфейс работал без повторного ввода. Их можно удалить, очистив данные Telegram или мини-приложения.\nМини-приложение не использует рекламные трекеры и сторонние сервисы аналитики."], ["4. Зачем нам эти данные", "• выдавать и проверять лицензии, привязывать ключ к устройству;\n• принимать оплату и выдавать ключ после платежа;\n• отвечать в поддержке и сбрасывать привязку;\n• защищать Сервисы от подбора ключей, обмана и злоупотреблений;\n• выполнять требования закона.\nМы не продаём ваши данные и не используем их для рекламы."], ["5. Кому данные могут быть переданы", "Telegram: бот, мини-приложение и платежи работают на платформе Telegram.\nПлатёжный провайдер: проводит оплату.\nХостинг и база данных: серверы, на которых работают бот, мини-приложение и база данных PostgreSQL.\nГосударственные органы: только если этого требует закон.\nДругих получателей у ваших данных нет."], ["6. Сколько данные хранятся", "Данные лицензии хранятся, пока ключ действует. Просроченные ключи автоматически удаляются из базы. После этого остаётся только необратимый хэш ключа: он нужен, чтобы один и тот же ключ не выдали дважды.\nЗаписи об оплатах хранятся столько, сколько нужно для учёта платежей и разбора споров, либо дольше, если этого требует закон.\nОбращения в поддержку остаются в переписке в Telegram."], ["7. Как мы защищаем данные", "Ключи хранятся в зашифрованном виде, а поиск ключа идёт по хэшу. Доступ к базе и к админ-командам бота есть только у Правообладателя. Бот не показывает ключ никому, кроме его владельца. Полностью исключить риски в интернете нельзя, но мы стараемся защищать данные разумными мерами."], ["8. Ваши права", "Вы можете запросить, какие данные о вас хранятся, попросить исправить их, удалить или отозвать согласие на обработку. Напишите в поддержку: /support.\nЕсли удалить данные лицензии, ключ перестанет работать. Записи об оплатах мы можем оставить, если закон требует хранить их дольше."], ["9. Дети", "Сервисы рассчитаны на пользователей от 18 лет. Мы сознательно не собираем данные детей. Если вы считаете, что такие данные попали к нам, напишите в поддержку, мы их удалим."], ["10. Изменения политики", "Мы можем обновлять политику. Новая редакция публикуется в боте и мини-приложении с новой датой. Если изменения существенные, бот и мини-приложение попросят принять условия заново."]]}};
+const agreed = ()=>state.agreed?.v===LEGAL.version;
+let curView="profile", legalBack="profile", curDoc="terms";
+const esc = s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function drawDoc(key,animate){
+  curDoc=key; const D=LEGAL[key];
+  $("#legalTitle").textContent=D.title;
+  $("#legalDate").textContent="Zaetheron Industry · редакция от "+LEGAL.date;
+  const btns=[...$("#dseg").querySelectorAll("button")], i=btns.findIndex(b=>b.dataset.d===key);
+  btns.forEach(b=>b.classList.toggle("active",b.dataset.d===key));
+  $("#dseg .thumb").style.transform=`translateX(${i*100}%)`;
+  $("#legalBody").innerHTML=D.sections.map(([h,t])=>
+    `<div class="doc-sec"><h4>${esc(h)}</h4>${t.split("\n").map(l=>`<p${l.startsWith("• ")?' class="li"':""}>${esc(l)}</p>`).join("")}</div>`).join("");
+  if(animate){ const b=$("#legalBody"); b.classList.remove("swap"); void b.offsetWidth; b.classList.add("swap"); }
+}
+function openDoc(key){ if(curView!=="legal") legalBack=curView; drawDoc(key); go("legal"); }
+
+function updateConsent(){
+  const need=!agreed();
+  $("#consent").classList.toggle("show",need&&curView!=="legal");
+  $(".app").classList.toggle("needs",need&&curView!=="legal");
+  $("#legalAcceptWrap").style.display=need?"":"none";
+  $("#agreeNote").textContent=need?"Условия ещё не приняты":"Условия приняты "+new Date(state.agreed.t).toLocaleDateString("ru-RU");
+}
+function acceptTerms(){
+  state.agreed={v:LEGAL.version,t:Date.now()}; save(); notif("success"); updateConsent(); toast("Условия приняты");
+  if(curView==="legal") setTimeout(()=>go(legalBack),500);
+}
+function needTerms(){
+  toast("Сначала примите условия",true); notif("error");
+  const c=$("#consent"); c.classList.remove("nudge"); void c.offsetWidth; c.classList.add("nudge");
+}
+$("#btnConsent").onclick=acceptTerms;
+$("#btnAccept").onclick=acceptTerms;
+$("#legalBack").onclick=()=>go(legalBack);
+$("#dseg").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-d]"); if(!b) return;
+  haptic(); drawDoc(b.dataset.d,true); $("main").scrollTo({top:0,behavior:"smooth"});
+});
+document.addEventListener("click",e=>{ const d=e.target.closest("[data-doc]"); if(d) openDoc(d.dataset.doc); });
+try{ tg?.BackButton?.onClick(()=>go(legalBack)); }catch(e){}
+
 /* ---- navigation ---- */
 function go(name){
   haptic();
@@ -391,6 +486,8 @@ function go(name){
   $("#v-"+name).classList.add("active");
   $$("nav button").forEach(b=>b.classList.toggle("active",b.dataset.go===name));
   $("main").scrollTo({top:0});
+  curView=name; updateConsent();
+  try{ if(tg?.BackButton){ name==="legal"?tg.BackButton.show():tg.BackButton.hide(); } }catch(e){}
 }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b) go(b.dataset.go); });
 
@@ -409,6 +506,7 @@ async function verifyKey(key){
 }
 function shakeField(){ const f=$("#field"); f.classList.remove("err"); void f.offsetWidth; f.classList.add("err"); }
 $("#btnActivate").onclick=async()=>{
+  if(!agreed()) return needTerms();
   const key=ki.value.trim(), b=$("#btnActivate");
   if(key.length!==18){ shakeField(); notif("error"); return toast("Введите ключ полностью",true); }
   b.disabled=true; b.textContent="Проверка…";
@@ -442,6 +540,7 @@ $("#plans").addEventListener("click",e=>{
   const p=e.target.closest(".plan"); if(!p) return; haptic(); selPlan=p.dataset.plan; drawPlans();
 });
 $("#btnBuy").onclick=async()=>{
+  if(!agreed()) return needTerms();
   const b=$("#btnBuy"); b.disabled=true; b.textContent="Отправляем счёт…";
   try{
     const r=await fetch(CONFIG.buyApi,{method:"POST",headers:{"Content-Type":"application/json"},
@@ -481,6 +580,7 @@ async function refreshLicenses(){
   save(); render();
 }
 setProd("app",true);
+updateConsent();
 refreshLicenses();
 setInterval(render,60000);   // keep remaining time fresh
 </script>
