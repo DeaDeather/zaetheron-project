@@ -58,7 +58,6 @@ PLATEGA_SECRET = os.environ.get("PLATEGA_SECRET", "")
 PLATEGA_METHOD = int(os.environ.get("PLATEGA_METHOD", "2"))  # 2 = СБП QR
 PLATEGA_RETURN_URL = os.environ.get("PLATEGA_RETURN_URL", "https://t.me")
 PLATEGA_ENABLED = bool(PLATEGA_MERCHANT_ID and PLATEGA_SECRET)
-logging.warning("Platega: enabled=%s, test_price_1d=%r", PLATEGA_ENABLED, os.environ.get("PLATEGA_TEST_PRICE_1D"))
 
 SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
 SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
@@ -526,13 +525,6 @@ def buy(req: BuyReq):
         raise HTTPException(429, f"Слишком часто. Попробуйте через {retry_after} сек.")
 
     if PLATEGA_ENABLED:
-        # ТЕСТ: если в Railway задана PLATEGA_TEST_PRICE_1D, тариф на 1 день стоит столько (₽).
-        # Для боевого режима просто удали эту переменную.
-        test_price = os.environ.get("PLATEGA_TEST_PRICE_1D", "").strip()
-        if test_price.isdigit() and keyvault.PLAN_DAYS[req.plan] == 1:
-            price = int(test_price)
-        logging.warning("Platega: создаю платёж на %s ₽ (PLATEGA_TEST_PRICE_1D=%r, plan=%s)",
-                        price, test_price, req.plan)
         try:
             url = platega_create(user_id, req.product, req.plan, price, title)
         except Exception:
