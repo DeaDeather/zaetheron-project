@@ -42,7 +42,7 @@ if not os.environ.get("KEY_SECRET"):
 ADMIN_TOKEN   = os.environ.get("ZEUS_ADMIN_TOKEN", "change-me-now")
 DOWNLOAD_URL  = os.environ.get(
     "DOWNLOAD_URL",
-    "https://drive.google.com/file/d/1sMyDNsyQUdOPkn2Pns8I13f58IQ7tgS8/view?usp=drive_link",
+    "https://disk.yandex.ru/d/y1LHEvFKaWPlWg",
 )
 
 DOWNLOAD_URLS = {
