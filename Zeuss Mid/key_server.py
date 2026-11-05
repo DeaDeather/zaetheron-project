@@ -525,6 +525,11 @@ def buy(req: BuyReq):
         raise HTTPException(429, f"Слишком часто. Попробуйте через {retry_after} сек.")
 
     if PLATEGA_ENABLED:
+        # ТЕСТ: если в Railway задана PLATEGA_TEST_PRICE_1D, тариф на 1 день стоит столько (₽).
+        # Для боевого режима просто удали эту переменную.
+        test_price = os.environ.get("PLATEGA_TEST_PRICE_1D", "").strip()
+        if test_price.isdigit() and keyvault.PLAN_DAYS[req.plan] == 1:
+            price = int(test_price)
         try:
             url = platega_create(user_id, req.product, req.plan, price, title)
         except Exception:
