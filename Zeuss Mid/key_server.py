@@ -13,6 +13,7 @@ Zeus Midnight — сервер лицензионных ключей.
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 import uuid
@@ -25,7 +26,7 @@ import psycopg2.extras
 import requests
 import keyvault
 from contextlib import closing
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -49,6 +50,14 @@ DOWNLOAD_URLS = {
     "os": os.environ.get("DOWNLOAD_URL_OS", ""),  # пусто — кнопка Custom OS неактивна
 }
 PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "")  # из @BotFather → Payments, валюта RUB
+
+# Platega.io: оплата по ссылке. Callback URL в ЛК Platega: https://<домен>/platega/callback
+PLATEGA_BASE = "https://app.platega.io"
+PLATEGA_MERCHANT_ID = os.environ.get("PLATEGA_MERCHANT_ID", "")
+PLATEGA_SECRET = os.environ.get("PLATEGA_SECRET", "")
+PLATEGA_METHOD = int(os.environ.get("PLATEGA_METHOD", "2"))  # 2 = СБП QR
+PLATEGA_RETURN_URL = os.environ.get("PLATEGA_RETURN_URL", "https://t.me")
+PLATEGA_ENABLED = bool(PLATEGA_MERCHANT_ID and PLATEGA_SECRET)
 
 SIGN_CERT_PEM = os.environ.get("ZAETHERON_SIGN_CERT_PEM")
 SIGN_KEY_PEM = os.environ.get("ZAETHERON_SIGN_KEY_PEM")
@@ -266,6 +275,24 @@ def init_db():
                     action TEXT NOT NULL,
                     last_ts BIGINT NOT NULL,
                     PRIMARY KEY (user_id, action)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS key_history (
+                    key_hash  TEXT PRIMARY KEY,
+                    issued_at BIGINT NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS platega_payments (
+                    id           TEXT PRIMARY KEY,
+                    telegram_id  BIGINT NOT NULL,
+                    product      TEXT NOT NULL,
+                    plan         TEXT NOT NULL,
+                    amount       INTEGER NOT NULL,
+                    status       TEXT NOT NULL DEFAULT 'PENDING',
+                    created_at   BIGINT NOT NULL,
+                    confirmed_at BIGINT
                 )
             """)
         conn.commit()
@@ -497,6 +524,14 @@ def buy(req: BuyReq):
     if not allowed:
         raise HTTPException(429, f"Слишком часто. Попробуйте через {retry_after} сек.")
 
+    if PLATEGA_ENABLED:
+        try:
+            url = platega_create(user_id, req.product, req.plan, price, title)
+        except Exception:
+            logging.exception("Platega: не удалось создать платёж")
+            raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
+        return {"ok": True, "mode": "link", "url": url}
+
     if PAYMENT_PROVIDER_TOKEN:
         ok, err = tg_call("sendInvoice", {
             "chat_id": user_id,
@@ -535,6 +570,172 @@ def buy(req: BuyReq):
             f"Создать ключ: /addkey {req.plan} {req.product} {user_id}",
         )
     return {"ok": True, "mode": "manual"}
+
+
+# ---------- Оплата через Platega.io ----------
+
+def _platega_headers():
+    return {"X-MerchantId": PLATEGA_MERCHANT_ID, "X-Secret": PLATEGA_SECRET,
+            "Content-Type": "application/json"}
+
+
+def _eq(a: str, b: str) -> bool:
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+def platega_create(user_id: int, product: str, plan: str, price: int, title: str) -> str:
+    """Создаёт транзакцию в Platega и пишет её в БД. Возвращает ссылку на оплату.
+    id платежа генерирует Platega, мы его не передаём."""
+    body = {
+        "paymentMethod": PLATEGA_METHOD,
+        "paymentDetails": {"amount": price, "currency": "RUB"},
+        "description": title,
+        "return": PLATEGA_RETURN_URL,
+        "failedUrl": PLATEGA_RETURN_URL,
+        "payload": f"{user_id}:{product}:{plan}",
+    }
+    r = requests.post(f"{PLATEGA_BASE}/transaction/process", json=body,
+                      headers=_platega_headers(), timeout=20)
+    if r.status_code != 200:
+        raise RuntimeError(f"Platega {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    tx_id, redirect = data["transactionId"], data["redirect"]
+    with closing(db()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO platega_payments (id, telegram_id, product, plan, amount, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (tx_id, user_id, product, plan, price, int(time.time())),
+            )
+        conn.commit()
+    return redirect
+
+
+def _issue_paid_key(cur, tx_id: str, user_id: int, product: str, plan: str, now: int):
+    """Та же логика, что _insert_new_key в bot.py: хэш в key_history + строка в keys.
+    Выполняется в открытой транзакции вызывающего."""
+    days = keyvault.PLAN_DAYS[plan]
+    expires_at = now + days * 86400
+    for _ in range(20):
+        plain = keyvault.generate_plain_key()
+        key_hash = keyvault.lookup_hash(plain)
+        cur.execute(
+            "INSERT INTO key_history (key_hash, issued_at) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+            (key_hash, now),
+        )
+        if cur.rowcount == 0:
+            continue
+        cur.execute(
+            """
+            INSERT INTO keys (key, key_enc, hwid, active, max_activations, activations,
+                              expires_at, resets_left, note, created_at, telegram_id, product)
+            VALUES (%s, %s, NULL, 1, 1, 0, %s, 2, %s, %s, %s, %s)
+            """,
+            (key_hash, keyvault.encrypt_key(plain), expires_at, f"platega {tx_id}", now, user_id, product),
+        )
+        return plain, expires_at, days
+    raise RuntimeError("Не удалось подобрать свободный ключ")
+
+
+@app.post("/platega/callback")
+async def platega_callback(request: Request):
+    """Platega шлёт сюда статус платежа. Отвечаем 200, если обработали (или обрабатывать нечего).
+    Ошибка 5xx = Platega повторит (через 5, 10 и 15 минут)."""
+    if not PLATEGA_ENABLED:
+        raise HTTPException(404, "not found")
+    if not (_eq(request.headers.get("X-MerchantId", ""), PLATEGA_MERCHANT_ID)
+            and _eq(request.headers.get("X-Secret", ""), PLATEGA_SECRET)):
+        raise HTTPException(401, "bad credentials")
+
+    data = await request.json()
+    from starlette.concurrency import run_in_threadpool
+    return await run_in_threadpool(_platega_process, data)
+
+
+def _platega_process(data: dict):
+    tx_id, status = data.get("id"), data.get("status")
+    if not tx_id or not status:
+        return {"ok": True}
+
+    with closing(db()) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM platega_payments WHERE id = %s", (tx_id,))
+            pay = cur.fetchone()
+            if pay is None:
+                logging.warning("Platega: колбэк по неизвестному платежу %s", tx_id)
+                return {"ok": True}
+
+            if status != "CONFIRMED":
+                cur.execute("UPDATE platega_payments SET status = %s WHERE id = %s AND status = 'PENDING'",
+                            (status, tx_id))
+                conn.commit()
+                if status == "CHARGEBACKED" and ADMIN_CHAT_ID:
+                    tg_send_message(ADMIN_CHAT_ID, f"⚠️ Chargeback по платежу Platega {tx_id}. Проверь ключ покупателя.")
+                return {"ok": True}
+
+            if pay["status"] == "CONFIRMED":
+                return {"ok": True}  # дубль колбэка
+
+    # не верим колбэку на слово: перепроверяем статус у Platega
+    try:
+        r = requests.get(f"{PLATEGA_BASE}/transaction/{tx_id}", headers=_platega_headers(), timeout=15)
+        r.raise_for_status()
+        remote = r.json().get("status")
+    except Exception:
+        logging.exception("Platega: не смог проверить статус %s", tx_id)
+        raise HTTPException(503, "retry")
+    if remote is not None and remote != "CONFIRMED":
+        logging.warning("Platega: колбэк CONFIRMED, но API отдаёт %s (%s)", remote, tx_id)
+        return {"ok": True}
+
+    if float(data.get("amount", 0)) != float(pay["amount"]):
+        logging.error("Platega: сумма не совпала %s: %s != %s", tx_id, data.get("amount"), pay["amount"])
+        if ADMIN_CHAT_ID:
+            tg_send_message(ADMIN_CHAT_ID, f"⚠️ Platega {tx_id}: сумма {data.get('amount')} не совпала с {pay['amount']}. Ключ не выдан.")
+        return {"ok": True}
+
+    now = int(time.time())
+    try:
+        # одна транзакция: забрали платёж + выдали ключ. Упадёт на ключе, статус сам откатится в PENDING.
+        with closing(db()) as conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE platega_payments SET status = 'CONFIRMED', confirmed_at = %s "
+                        "WHERE id = %s AND status = 'PENDING'", (now, tx_id))
+                    if cur.rowcount == 0:
+                        conn.rollback()
+                        return {"ok": True}  # параллельный колбэк уже забрал
+                    key, expires_at, days = _issue_paid_key(
+                        cur, tx_id, pay["telegram_id"], pay["product"], pay["plan"], now)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+    except Exception:
+        logging.exception("Platega: ошибка выдачи ключа по %s", tx_id)
+        raise HTTPException(500, "retry")
+
+    title = keyvault.PRODUCTS[pay["product"]]["title"]
+    exp_text = datetime.datetime.fromtimestamp(expires_at).strftime("%d.%m.%Y %H:%M")
+    tg_send_message(
+        pay["telegram_id"],
+        "✅ Оплата получена!\n\n"
+        f"Товар: {title}\n"
+        f"Ключ: {key}\n"
+        f"Срок: {days} дн., до {exp_text}\n\n"
+        "Активировать можно в мини-приложении или командой /mykey.",
+    )
+    if ADMIN_CHAT_ID:
+        tg_send_message(
+            ADMIN_CHAT_ID,
+            "💰 Оплата Platega\n\n"
+            f"Товар: {title}, {days} дн.\n"
+            f"Telegram ID: {pay['telegram_id']}\n"
+            f"Сумма: {pay['amount']} ₽\n"
+            f"Ключ: {key}",
+        )
+    return {"ok": True}
 
 
 @app.post("/report")
