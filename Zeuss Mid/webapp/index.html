@@ -541,12 +541,13 @@ $("#plans").addEventListener("click",e=>{
 });
 $("#btnBuy").onclick=async()=>{
   if(!agreed()) return needTerms();
-  const b=$("#btnBuy"); b.disabled=true; b.textContent="Отправляем счёт…";
+  const b=$("#btnBuy"); b.disabled=true; b.textContent="Создаём счёт…";
   try{
     const r=await fetch(CONFIG.buyApi,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({product:prod,plan:selPlan,init_data:tg?.initData||""})});
     const data=await r.json().catch(()=>({}));
-    if(r.ok && data.ok){ notif("success"); toast("Счёт отправлен в чат с ботом"); setTimeout(()=>tg?.close?.(),900); }
+    if(r.ok && data.ok && data.mode==="link" && data.url){ notif("success"); toast("Открываем оплату…"); if(tg?.openLink) tg.openLink(data.url); else window.open(data.url,"_blank"); }
+    else if(r.ok && data.ok){ notif("success"); toast("Счёт отправлен в чат с ботом"); setTimeout(()=>tg?.close?.(),900); }
     else toast(data.detail||"Не удалось создать счёт",true);
   }catch(e){ toast("Ошибка сети. Попробуйте позже",true); }
   b.disabled=false; b.textContent="Купить";
