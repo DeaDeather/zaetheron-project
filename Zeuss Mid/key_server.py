@@ -530,6 +530,13 @@ def buy(req: BuyReq):
         except Exception:
             logging.exception("Platega: не удалось создать платёж")
             raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
+        # дублируем ссылку в чат: на десктопе мини-апп не всегда открывает внешние ссылки
+        tg_send_message(
+            user_id,
+            f"Счёт на «{title}» ({price} ₽) создан. Нажмите кнопку, чтобы оплатить.\n"
+            "Ключ придёт в этот чат сразу после оплаты.",
+            reply_markup={"inline_keyboard": [[{"text": f"Оплатить {price} ₽", "url": url}]]},
+        )
         return {"ok": True, "mode": "link", "url": url}
 
     if PAYMENT_PROVIDER_TOKEN:
